@@ -1,14 +1,12 @@
 from flask import Flask, render_template, request, jsonify
 from datetime import datetime
-import os
 import requests
 
 app = Flask(__name__)
 
 # ========== НАСТРОЙКИ SUPABASE ==========
-# ЗАМЕНИТЕ ЭТИ ДАННЫЕ НА СВОИ ИЗ ШАГА 2!
-SUPABASE_URL = "https://llkfbzaancbjlyxwjqmo.supabase.co"  # <-- ВАШ URL
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxsa2ZiemFhbmNiamx5eHdqcW1vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxNDU2OTEsImV4cCI6MjA5MDcyMTY5MX0._ZgQ9uVejj5gJwOT9_B5Z3sAMpqHMXEVwSal4Dkls64"  # <-- ВАШ КЛЮЧ
+SUPABASE_URL = "https://llkfbzaancbjlyxwjqmo.supabase.co"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxsa2ZiemFhbmNiamx5eHdqcW1vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxNDU2OTEsImV4cCI6MjA5MDcyMTY5MX0._ZgQ9uVejj5gJwOT9_B5Z3sAMpqHMXEVwSal4Dkls64"
 
 HEADERS = {
     "apikey": SUPABASE_KEY,
@@ -17,7 +15,6 @@ HEADERS = {
 }
 
 def supabase_get(table, select="*", eq_column=None, eq_value=None):
-    """Универсальная функция для GET запросов к Supabase"""
     url = f"{SUPABASE_URL}/rest/v1/{table}?select={select}"
     if eq_column and eq_value:
         url += f"&{eq_column}=eq.{eq_value}"
@@ -25,13 +22,11 @@ def supabase_get(table, select="*", eq_column=None, eq_value=None):
     return response.json()
 
 def supabase_post(table, data):
-    """Универсальная функция для POST запросов к Supabase"""
     url = f"{SUPABASE_URL}/rest/v1/{table}"
     response = requests.post(url, headers=HEADERS, json=data)
     return response.json() if response.status_code == 201 else None
 
 def supabase_delete(table, eq_column, eq_value):
-    """Удаление записи из таблицы"""
     url = f"{SUPABASE_URL}/rest/v1/{table}?{eq_column}=eq.{eq_value}"
     response = requests.delete(url, headers=HEADERS)
     return response.status_code == 204
