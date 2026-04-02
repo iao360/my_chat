@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>Общий чат - с уведомлениями</title>
+    <title>Общий чат - полная версия</title>
     <style>
         * {
             box-sizing: border-box;
@@ -120,6 +120,21 @@
             font-size: 14px;
         }
         
+        .user-list-panel li {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 5px 0;
+        }
+        
+        .delete-user-btn {
+            background: #dc3545;
+            padding: 4px 8px;
+            font-size: 11px;
+            width: auto;
+            margin: 0;
+        }
+        
         .admin-panel {
             background: #fff8e7;
             border-radius: 16px;
@@ -131,6 +146,12 @@
         .admin-panel h4 {
             margin: 0 0 8px 0;
             color: #cc6600;
+        }
+        
+        .admin-panel button {
+            width: auto;
+            padding: 8px 16px;
+            margin: 5px 5px 0 0;
         }
         
         .pending-user {
@@ -172,6 +193,7 @@
             box-shadow: 0 1px 2px rgba(0,0,0,0.05);
             word-wrap: break-word;
             max-width: 100%;
+            position: relative;
         }
         
         .chat-message strong {
@@ -191,6 +213,19 @@
             border-radius: 12px;
             margin-top: 8px;
             display: block;
+        }
+        
+        .message-actions {
+            margin-top: 8px;
+            text-align: right;
+        }
+        
+        .delete-msg-btn {
+            background: #dc3545;
+            padding: 4px 8px;
+            font-size: 11px;
+            width: auto;
+            margin: 0;
         }
         
         .emoji-picker {
@@ -232,15 +267,6 @@
             padding: 12px 20px;
         }
         
-        .image-preview {
-            display: none;
-            margin-top: 8px;
-            padding: 8px;
-            background: #f0f0f0;
-            border-radius: 12px;
-            font-size: 12px;
-        }
-        
         @media (min-width: 768px) {
             .main-content {
                 flex-direction: row;
@@ -249,7 +275,7 @@
             }
             
             .user-list-panel {
-                width: 250px;
+                width: 280px;
                 position: sticky;
                 top: 70px;
             }
@@ -311,7 +337,7 @@
             <span>🔔 Получать уведомления о новых сообщениях?</span>
             <div>
                 <button id="enableNotificationsBtn">Да, включить</button>
-                <button id="laterNotificationsBtn" class="later">Позже</button>
+                <button id="laterNotificationsBtn" class="later">Нет</button>
             </div>
         </div>
         
@@ -333,15 +359,15 @@
                         <button type="button" class="emoji-btn" onclick="addEmoji('🎉')">🎉</button>
                     </div>
                     <div style="display: flex; gap: 8px; width: 100%; flex-wrap: wrap;">
-                        <input type="text" id="chatInput" placeholder="Сообщение или ссылка на картинку (jpg/png/gif)..." onkeypress="if(event.key==='Enter') sendMessage()">
+                        <input type="text" id="chatInput" placeholder="Сообщение или ссылка на картинку..." onkeypress="if(event.key==='Enter') sendMessage()">
                         <button onclick="sendMessage()">Отправить</button>
                     </div>
-                    <div id="imagePreview" class="image-preview"></div>
                 </div>
             </div>
             
             <div id="adminPanel" class="admin-panel hidden">
                 <h4>👑 Админ-панель</h4>
+                <button onclick="clearChat()">🗑️ Очистить весь чат</button>
                 <div id="pendingList">Загрузка...</div>
             </div>
         </div>
@@ -353,31 +379,27 @@
         let lastMessageCount = 0;
         let notificationPermission = false;
         let notificationAsked = false;
+        let messagesList = [];
         
         const STORAGE_USER_KEY = 'chat_current_user';
         const NOTIFICATION_ASKED_KEY = 'chat_notification_asked';
         
-        // Проверка поддержки уведомлений
         function isNotificationSupported() {
             return 'Notification' in window;
         }
         
-        // Запрос разрешения на уведомления (с баннером)
         function requestNotificationPermission() {
-            if (!isNotificationSupported()) {
-                console.log('Уведомления не поддерживаются');
-                return;
-            }
+            if (!isNotificationSupported()) return;
             
             Notification.requestPermission().then(perm => {
                 notificationPermission = (perm === 'granted');
                 if (notificationPermission) {
                     document.getElementById('notificationBanner').classList.add('hidden');
+                    localStorage.setItem(NOTIFICATION_ASKED_KEY, 'true');
                 }
             });
         }
         
-        // Показать баннер с запросом уведомлений (один раз)
         function showNotificationBanner() {
             if (!isNotificationSupported()) return;
             if (notificationPermission) return;
@@ -393,7 +415,6 @@
             }
         }
         
-        // Отправка уведомления
         function sendNotification(title, body) {
             if (notificationPermission && document.hidden) {
                 try {
@@ -402,9 +423,7 @@
                         icon: 'https://cdn-icons-png.flaticon.com/512/4712/4712109.png',
                         silent: false
                     });
-                } catch(e) {
-                    console.log('Ошибка уведомления:', e);
-                }
+                } catch(e) {}
             }
         }
         
@@ -434,12 +453,41 @@
                 } else {
                     for (let name of users) {
                         let li = document.createElement('li');
-                        li.textContent = name;
+                        li.innerHTML = `<span>${escapeHtml(name)}</span>`;
+                        if (currentUser === 'admin') {
+                            let delBtn = document.createElement('button');
+                            delBtn.textContent = '❌';
+                            delBtn.className = 'delete-user-btn';
+                            delBtn.onclick = () => deleteUser(name);
+                            li.appendChild(delBtn);
+                        }
                         userList.appendChild(li);
                     }
                 }
             } catch(e) {
                 console.error('Ошибка загрузки пользователей:', e);
+            }
+        }
+        
+        async function deleteUser(username) {
+            if (confirm(`Удалить пользователя ${username} и все его сообщения?`)) {
+                await apiCall('/api/delete_user', 'POST', { username: username });
+                loadUsers();
+                loadMessages();
+            }
+        }
+        
+        async function deleteMessage(messageId) {
+            if (confirm('Удалить это сообщение?')) {
+                await apiCall('/api/delete_message', 'POST', { message_id: messageId });
+                loadMessages();
+            }
+        }
+        
+        async function clearChat() {
+            if (confirm('⚠️ Очистить весь чат навсегда? Это действие нельзя отменить!')) {
+                await apiCall('/api/clear_chat', 'POST');
+                loadMessages();
             }
         }
         
@@ -487,20 +535,15 @@
         
         function formatMessage(text) {
             let formatted = escapeHtml(text);
-            
-            // Поддержка картинок по ссылке (jpg, jpeg, png, gif, webp)
             let imageRegex = /(https?:\/\/[^\s]+\.(jpg|jpeg|png|gif|webp))/gi;
             formatted = formatted.replace(imageRegex, (match) => {
                 return `<img src="${match}" alt="картинка" loading="lazy" onerror="this.style.display='none'">`;
             });
-            
-            // Ссылки делаем кликабельными
             let urlRegex = /(https?:\/\/[^\s]+)/gi;
             formatted = formatted.replace(urlRegex, (match) => {
                 if (match.match(/\.(jpg|jpeg|png|gif|webp)$/i)) return match;
                 return `<a href="${match}" target="_blank" rel="noopener noreferrer">${match}</a>`;
             });
-            
             return formatted;
         }
         
@@ -510,12 +553,14 @@
                 let container = document.getElementById('chatMessages');
                 if (!container) return;
                 
+                messagesList = messages;
+                
                 if (messages.length === 0) {
                     container.innerHTML = '<div class="chat-message" style="text-align:center;">Нет сообщений</div>';
+                    lastMessageCount = 0;
                     return;
                 }
                 
-                // Уведомление о новых сообщениях
                 if (messages.length > lastMessageCount && lastMessageCount > 0 && currentUser) {
                     let lastMsg = messages[messages.length - 1];
                     if (lastMsg.author !== currentUser) {
@@ -531,6 +576,18 @@
                     msgDiv.innerHTML = '<strong>' + escapeHtml(msg.author) + '</strong>' +
                                        '<span class="time">' + msg.time + '</span><br>' +
                                        formatMessage(msg.text);
+                    
+                    if (msg.author === currentUser || currentUser === 'admin') {
+                        let actionsDiv = document.createElement('div');
+                        actionsDiv.className = 'message-actions';
+                        let delBtn = document.createElement('button');
+                        delBtn.textContent = '🗑️ Удалить';
+                        delBtn.className = 'delete-msg-btn';
+                        delBtn.onclick = () => deleteMessage(msg.id);
+                        actionsDiv.appendChild(delBtn);
+                        msgDiv.appendChild(actionsDiv);
+                    }
+                    
                     container.appendChild(msgDiv);
                 }
                 container.scrollTop = container.scrollHeight;
@@ -542,7 +599,6 @@
         async function sendMessage() {
             let input = document.getElementById('chatInput');
             let text = input.value.trim();
-            
             if (!text) return;
             
             let now = new Date();
@@ -626,7 +682,6 @@
                 if (currentUser === 'admin') loadPending();
             }, 3000);
             
-            // Показываем запрос на уведомления (один раз)
             setTimeout(() => {
                 showNotificationBanner();
             }, 500);
@@ -659,7 +714,6 @@
             document.getElementById('loginBox').classList.remove('hidden');
         }
         
-        // Автовход
         async function checkAutoLogin() {
             let savedUser = localStorage.getItem(STORAGE_USER_KEY);
             if (savedUser) {
@@ -688,7 +742,6 @@
             }
         });
         
-        // Кнопки уведомлений
         document.addEventListener('DOMContentLoaded', function() {
             const enableBtn = document.getElementById('enableNotificationsBtn');
             const laterBtn = document.getElementById('laterNotificationsBtn');
