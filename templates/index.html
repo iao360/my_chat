@@ -112,36 +112,44 @@
         }
         
         async function loadUsers() {
-            let users = await apiCall('/api/users');
-            let userList = document.getElementById('userList');
-            userList.innerHTML = '';
-            if (users.length === 0) {
-                userList.innerHTML = '<li>Нет одобренных пользователей</li>';
-            } else {
-                for (let name of users) {
-                    let li = document.createElement('li');
-                    li.textContent = name;
-                    userList.appendChild(li);
+            try {
+                let users = await apiCall('/api/users');
+                let userList = document.getElementById('userList');
+                userList.innerHTML = '';
+                if (users.length === 0) {
+                    userList.innerHTML = '<li>Нет одобренных пользователей</li>';
+                } else {
+                    for (let name of users) {
+                        let li = document.createElement('li');
+                        li.textContent = name;
+                        userList.appendChild(li);
+                    }
                 }
+            } catch(e) {
+                console.error('Ошибка загрузки пользователей:', e);
             }
         }
         
         async function loadPending() {
             if (currentUser !== 'admin') return;
-            let pending = await apiCall('/api/pending');
-            let container = document.getElementById('pendingList');
-            if (pending.length === 0) {
-                container.innerHTML = '<p style="font-size:12px;">Нет заявок</p>';
-                return;
-            }
-            container.innerHTML = '';
-            for (let name of pending) {
-                let div = document.createElement('div');
-                div.className = 'pending-user';
-                div.innerHTML = '<strong>' + escapeHtml(name) + '</strong><br>' +
-                               '<button onclick="approveUser(\'' + name + '\')">✅ Одобрить</button> ' +
-                               '<button onclick="rejectUser(\'' + name + '\')">❌ Отклонить</button>';
-                container.appendChild(div);
+            try {
+                let pending = await apiCall('/api/pending');
+                let container = document.getElementById('pendingList');
+                if (pending.length === 0) {
+                    container.innerHTML = '<p style="font-size:12px;">Нет заявок</p>';
+                    return;
+                }
+                container.innerHTML = '';
+                for (let name of pending) {
+                    let div = document.createElement('div');
+                    div.className = 'pending-user';
+                    div.innerHTML = '<strong>' + escapeHtml(name) + '</strong><br>' +
+                                   '<button onclick="approveUser(\'' + name + '\')">✅ Одобрить</button> ' +
+                                   '<button onclick="rejectUser(\'' + name + '\')">❌ Отклонить</button>';
+                    container.appendChild(div);
+                }
+            } catch(e) {
+                console.error('Ошибка загрузки заявок:', e);
             }
         }
         
@@ -159,22 +167,26 @@
         }
         
         async function loadMessages() {
-            let messages = await apiCall('/api/messages');
-            let container = document.getElementById('chatMessages');
-            if (messages.length === 0) {
-                container.innerHTML = '<div class="chat-message" style="text-align:center;">Нет сообщений</div>';
-                return;
+            try {
+                let messages = await apiCall('/api/messages');
+                let container = document.getElementById('chatMessages');
+                if (messages.length === 0) {
+                    container.innerHTML = '<div class="chat-message" style="text-align:center;">Нет сообщений</div>';
+                    return;
+                }
+                container.innerHTML = '';
+                for (let msg of messages) {
+                    let msgDiv = document.createElement('div');
+                    msgDiv.className = 'chat-message';
+                    msgDiv.innerHTML = '<strong>' + escapeHtml(msg.author) + '</strong>' +
+                                       '<span class="time">' + msg.time + '</span><br>' +
+                                       escapeHtml(msg.text);
+                    container.appendChild(msgDiv);
+                }
+                container.scrollTop = container.scrollHeight;
+            } catch(e) {
+                console.error('Ошибка загрузки сообщений:', e);
             }
-            container.innerHTML = '';
-            for (let msg of messages) {
-                let msgDiv = document.createElement('div');
-                msgDiv.className = 'chat-message';
-                msgDiv.innerHTML = '<strong>' + escapeHtml(msg.author) + '</strong>' +
-                                   '<span class="time">' + msg.time + '</span><br>' +
-                                   escapeHtml(msg.text);
-                container.appendChild(msgDiv);
-            }
-            container.scrollTop = container.scrollHeight;
         }
         
         function escapeHtml(text) {
