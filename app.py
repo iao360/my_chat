@@ -1,49 +1,40 @@
 from flask import Flask, render_template, request, jsonify
 from datetime import datetime
-import sqlite3
 import os
+import requests
 
 app = Flask(__name__)
 
-# На Render можно писать только в /tmp
-DB_PATH = '/tmp/chat.db'
+# ========== НАСТРОЙКИ SUPABASE ==========
+# ЗАМЕНИТЕ ЭТИ ДАННЫЕ НА СВОИ ИЗ ШАГА 2!
+SUPABASE_URL = "https://llkfbzaancbjlyxwjqmo.supabase.co"  # <-- ВАШ URL
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxsa2ZiemFhbmNiamx5eHdqcW1vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxNDU2OTEsImV4cCI6MjA5MDcyMTY5MX0._ZgQ9uVejj5gJwOT9_B5Z3sAMpqHMXEVwSal4Dkls64"  # <-- ВАШ КЛЮЧ
 
-def init_db():
-    """Создаёт таблицы, если их нет"""
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    
-    # Таблица одобренных пользователей
-    c.execute('''CREATE TABLE IF NOT EXISTS users
-                 (username TEXT PRIMARY KEY, 
-                  password TEXT, 
-                  is_approved INTEGER DEFAULT 0)''')
-    
-    # Таблица заявок на регистрацию
-    c.execute('''CREATE TABLE IF NOT EXISTS pending
-                 (username TEXT PRIMARY KEY, 
-                  password TEXT)''')
-    
-    # Таблица сообщений
-    c.execute('''CREATE TABLE IF NOT EXISTS messages
-                 (id INTEGER PRIMARY KEY AUTOINCREMENT, 
-                  author TEXT, 
-                  text TEXT, 
-                  time TEXT, 
-                  timestamp INTEGER)''')
-    
-    # Добавляем админа, если его нет
-    c.execute("SELECT * FROM users WHERE username = 'admin'")
-    if not c.fetchone():
-        c.execute("INSERT INTO users (username, password, is_approved) VALUES ('admin', 'Xk9#mP2$vL7@qR4!wN6', 1)")
-        print("✅ Админ создан")
-    
-    conn.commit()
-    conn.close()
-    print("✅ База данных инициализирована")
+HEADERS = {
+    "apikey": SUPABASE_KEY,
+    "Authorization": f"Bearer {SUPABASE_KEY}",
+    "Content-Type": "application/json"
+}
 
-# ВАЖНО: вызываем init_db() ПРИ ЗАПУСКЕ
-init_db()
+def supabase_get(table, select="*", eq_column=None, eq_value=None):
+    """Универсальная функция для GET запросов к Supabase"""
+    url = f"{SUPABASE_URL}/rest/v1/{table}?select={select}"
+    if eq_column and eq_value:
+        url += f"&{eq_column}=eq.{eq_value}"
+    response = requests.get(url, headers=HEADERS)
+    return response.json()
+
+def supabase_post(table, data):
+    """Универсальная функция для POST запросов к Supabase"""
+    url = f"{SUPABASE_URL}/rest/v1/{table}"
+    response = requests.post(url, headers=HEADERS, json=data)
+    return response.json() if response.status_code == 201 else None
+
+def supabase_delete(table, eq_column, eq_value):
+    """Удаление записи из таблицы"""
+    url = f"{SUPABASE_URL}/rest/v1/{table}?{eq_column}=eq.{eq_value}"
+    response = requests.delete(url, headers=HEADERS)
+    return response.status_code == 204
 
 @app.route('/')
 def index():
@@ -51,29 +42,26 @@ def index():
 
 @app.route('/api/users')
 def get_users():
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("SELECT username FROM users WHERE is_approved = 1 AND username != 'admin'")
-    users = [row[0] for row in c.fetchall()]
-    conn.close()
-    return jsonify(users)
+    users = supabase_get("users", select="username", eq_column="is_approved", eq_value=1)
+    if isinstance(users, dict) and "error" in users:
+        return jsonify([])
+    usernames = [u["username"] for u in users if u["username"] != "admin"]
+    return jsonify(usernames)
 
 @app.route('/api/pending')
 def get_pending():
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("SELECT username FROM pending")
-    pending = [row[0] for row in c.fetchall()]
-    conn.close()
-    return jsonify(pending)
+    pending = supabase_get("pending", select="username")
+    if isinstance(pending, dict) and "error" in pending:
+        return jsonify([])
+    usernames = [p["username"] for p in pending]
+    return jsonify(usernames)
 
 @app.route('/api/messages')
 def get_messages():
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("SELECT author, text, time, timestamp FROM messages ORDER BY timestamp ASC")
-    messages = [{'author': row[0], 'text': row[1], 'time': row[2], 'timestamp': row[3]} for row in c.fetchall()]
-    conn.close()
+    messages = supabase_get("messages", select="*")
+    if isinstance(messages, dict) and "error" in messages:
+        return jsonify([])
+    messages.sort(key=lambda x: x.get("timestamp", 0))
     return jsonify(messages)
 
 @app.route('/api/register', methods=['POST'])
@@ -83,22 +71,15 @@ def register():
         username = data.get('username')
         password = data.get('password')
         
-        conn = sqlite3.connect(DB_PATH)
-        c = conn.cursor()
-        
-        c.execute("SELECT * FROM users WHERE username = ?", (username,))
-        if c.fetchone():
-            conn.close()
+        existing = supabase_get("users", select="username", eq_column="username", eq_value=username)
+        if existing and len(existing) > 0:
             return jsonify({'success': False, 'error': 'Пользователь уже существует'})
         
-        c.execute("SELECT * FROM pending WHERE username = ?", (username,))
-        if c.fetchone():
-            conn.close()
+        existing_pending = supabase_get("pending", select="username", eq_column="username", eq_value=username)
+        if existing_pending and len(existing_pending) > 0:
             return jsonify({'success': False, 'error': 'Заявка уже отправлена'})
         
-        c.execute("INSERT INTO pending VALUES (?, ?)", (username, password))
-        conn.commit()
-        conn.close()
+        supabase_post("pending", {"username": username, "password": password})
         return jsonify({'success': True})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
@@ -110,14 +91,13 @@ def login():
         username = data.get('username')
         password = data.get('password')
         
-        conn = sqlite3.connect(DB_PATH)
-        c = conn.cursor()
-        c.execute("SELECT * FROM users WHERE username = ? AND password = ? AND is_approved = 1", (username, password))
-        user = c.fetchone()
-        conn.close()
+        users = supabase_get("users", select="*", eq_column="username", eq_value=username)
         
-        if user:
-            return jsonify({'success': True})
+        if users and len(users) > 0:
+            user = users[0]
+            if user.get("password") == password and user.get("is_approved") == 1:
+                return jsonify({'success': True})
+        
         return jsonify({'success': False, 'error': 'Неверный логин или пароль'})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
@@ -128,21 +108,15 @@ def approve():
         data = request.json
         username = data.get('username')
         
-        conn = sqlite3.connect(DB_PATH)
-        c = conn.cursor()
-        c.execute("SELECT password FROM pending WHERE username = ?", (username,))
-        row = c.fetchone()
+        pending = supabase_get("pending", select="*", eq_column="username", eq_value=username)
+        if not pending or len(pending) == 0:
+            return jsonify({'success': False})
         
-        if row:
-            password = row[0]
-            c.execute("INSERT INTO users (username, password, is_approved) VALUES (?, ?, 1)", (username, password))
-            c.execute("DELETE FROM pending WHERE username = ?", (username,))
-            conn.commit()
-            conn.close()
-            return jsonify({'success': True})
+        password = pending[0]["password"]
+        supabase_post("users", {"username": username, "password": password, "is_approved": 1})
+        supabase_delete("pending", "username", username)
         
-        conn.close()
-        return jsonify({'success': False})
+        return jsonify({'success': True})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
@@ -151,12 +125,7 @@ def reject():
     try:
         data = request.json
         username = data.get('username')
-        
-        conn = sqlite3.connect(DB_PATH)
-        c = conn.cursor()
-        c.execute("DELETE FROM pending WHERE username = ?", (username,))
-        conn.commit()
-        conn.close()
+        supabase_delete("pending", "username", username)
         return jsonify({'success': True})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
@@ -165,17 +134,12 @@ def reject():
 def send_message():
     try:
         data = request.json
-        author = data.get('author')
-        text = data.get('text')
-        time = data.get('time')
-        timestamp = data.get('timestamp')
-        
-        conn = sqlite3.connect(DB_PATH)
-        c = conn.cursor()
-        c.execute("INSERT INTO messages (author, text, time, timestamp) VALUES (?, ?, ?, ?)",
-                  (author, text, time, timestamp))
-        conn.commit()
-        conn.close()
+        supabase_post("messages", {
+            "author": data.get('author'),
+            "text": data.get('text'),
+            "time": data.get('time'),
+            "timestamp": data.get('timestamp')
+        })
         return jsonify({'success': True})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
