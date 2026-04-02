@@ -16,7 +16,6 @@
             background: #f5f5f5;
         }
         
-        /* Контейнеры входа */
         .login-container {
             max-width: 400px;
             margin: 50px auto;
@@ -52,7 +51,6 @@
         .error { color: red; font-size: 14px; }
         .success { color: green; font-size: 14px; }
         
-        /* Шапка сайта */
         .site-header {
             background: white;
             padding: 12px 16px;
@@ -72,7 +70,6 @@
             margin: 0;
         }
         
-        /* Основной контент — мобильная адаптация */
         .main-content {
             display: flex;
             flex-direction: column;
@@ -80,7 +77,6 @@
             padding-bottom: 80px;
         }
         
-        /* Список пользователей (скрыт на телефоне по умолчанию) */
         .user-list-panel {
             background: white;
             border-radius: 16px;
@@ -105,7 +101,6 @@
             margin: 4px 0;
         }
         
-        /* Админ-панель */
         .admin-panel {
             background: #fff8e7;
             border-radius: 16px;
@@ -134,7 +129,6 @@
             font-size: 13px;
         }
         
-        /* Чат */
         .chat-container {
             background: white;
             border-radius: 16px;
@@ -179,7 +173,6 @@
             margin-top: 8px;
         }
         
-        /* Эмодзи панель */
         .emoji-picker {
             display: inline-flex;
             gap: 8px;
@@ -197,7 +190,6 @@
             border-radius: 20px;
         }
         
-        /* Поле ввода */
         .chat-input-area {
             display: flex;
             padding: 12px;
@@ -227,17 +219,6 @@
             font-size: 18px;
         }
         
-        /* Уведомления */
-        .notification-badge {
-            background: red;
-            color: white;
-            border-radius: 20px;
-            padding: 2px 8px;
-            font-size: 12px;
-            margin-left: 8px;
-        }
-        
-        /* Десктопная версия (широкий экран) */
         @media (min-width: 768px) {
             .main-content {
                 flex-direction: row;
@@ -339,6 +320,9 @@
         let lastMessageCount = 0;
         let notificationPermission = false;
         
+        // КЛЮЧИ ДЛЯ localStorage
+        const STORAGE_USER_KEY = 'chat_current_user';
+        
         // Запрос разрешения на уведомления
         function requestNotificationPermission() {
             if ('Notification' in window) {
@@ -430,7 +414,6 @@
         }
         
         function formatMessage(text) {
-            // Поддержка картинок по ссылке
             let imageRegex = /(https?:\/\/[^\s]+\.(jpg|jpeg|png|gif|webp))/gi;
             let formatted = escapeHtml(text);
             formatted = formatted.replace(imageRegex, (match) => {
@@ -448,7 +431,6 @@
                     return;
                 }
                 
-                // Проверка на новые сообщения для уведомления
                 if (messages.length > lastMessageCount && lastMessageCount > 0 && currentUser) {
                     let lastMsg = messages[messages.length - 1];
                     if (lastMsg.author !== currentUser) {
@@ -476,7 +458,6 @@
             let input = document.getElementById('chatInput');
             let text = input.value.trim();
             
-            // Проверка на ссылку картинки из специального поля
             let imageUrl = document.getElementById('imageUrlInput').value.trim();
             if (imageUrl && (imageUrl.match(/\.(jpg|jpeg|png|gif|webp)$/i) || imageUrl.startsWith('http'))) {
                 text = text + (text ? ' ' : '') + imageUrl;
@@ -536,6 +517,8 @@
             let result = await apiCall('/api/login', 'POST', { username: name, password: pass });
             if (result.success) {
                 currentUser = name;
+                // СОХРАНЯЕМ В localStorage
+                localStorage.setItem(STORAGE_USER_KEY, name);
                 showSite(name);
                 requestNotificationPermission();
             } else {
@@ -575,6 +558,8 @@
             if (updateInterval) clearInterval(updateInterval);
             currentUser = null;
             lastMessageCount = 0;
+            // УДАЛЯЕМ ИЗ localStorage
+            localStorage.removeItem(STORAGE_USER_KEY);
             document.getElementById('loginName').value = '';
             document.getElementById('loginPass').value = '';
             document.getElementById('loginError').innerText = '';
@@ -592,12 +577,43 @@
             document.getElementById('loginBox').classList.remove('hidden');
         }
         
-        // Следим за видимостью страницы для уведомлений
+        // ========== АВТОМАТИЧЕСКАЯ ПРОВЕРКА ПРИ ЗАГРУЗКЕ СТРАНИЦЫ ==========
+        async function checkAutoLogin() {
+            let savedUser = localStorage.getItem(STORAGE_USER_KEY);
+            if (savedUser) {
+                // Проверяем, действительно ли пользователь существует в базе
+                try {
+                    let users = await apiCall('/api/users');
+                    // Админ всегда может войти
+                    if (savedUser === 'admin') {
+                        currentUser = savedUser;
+                        showSite(savedUser);
+                        requestNotificationPermission();
+                        return;
+                    }
+                    // Проверяем обычного пользователя
+                    if (users.includes(savedUser)) {
+                        currentUser = savedUser;
+                        showSite(savedUser);
+                        requestNotificationPermission();
+                        return;
+                    }
+                } catch(e) {
+                    console.error('Ошибка автовхода:', e);
+                }
+                // Если пользователь не найден в базе — очищаем localStorage
+                localStorage.removeItem(STORAGE_USER_KEY);
+            }
+        }
+        
         document.addEventListener('visibilitychange', function() {
             if (!document.hidden) {
                 loadMessages();
             }
         });
+        
+        // ЗАПУСКАЕМ ПРОВЕРКУ ПРИ ЗАГРУЗКЕ СТРАНИЦЫ
+        checkAutoLogin();
     </script>
 </body>
 </html>
