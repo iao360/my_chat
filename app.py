@@ -35,6 +35,16 @@ def supabase_delete(table, eq_column, eq_value):
     response = requests.delete(url, headers=HEADERS)
     return response.status_code == 204
 
+def supabase_delete_all(table):
+    """Удалить все записи из таблицы"""
+    url = f"{SUPABASE_URL}/rest/v1/{table}?select=id"
+    response = requests.get(url, headers=HEADERS)
+    if response.status_code == 200:
+        rows = response.json()
+        for row in rows:
+            supabase_delete(table, "id", row["id"])
+    return True
+
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -57,7 +67,6 @@ def get_pending():
 
 @app.route('/api/messages')
 def get_messages():
-    # Загружаем последние 100 сообщений для скорости
     messages = supabase_get("messages", select="*", order="timestamp.desc", limit=100)
     if isinstance(messages, dict) and "error" in messages:
         return jsonify([])
@@ -130,17 +139,57 @@ def reject():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
+@app.route('/api/delete_user', methods=['POST'])
+def delete_user():
+    """Админ удаляет пользователя и все его сообщения"""
+    try:
+        data = request.json
+        username = data.get('username')
+        
+        # Удаляем сообщения пользователя
+        messages = supabase_get("messages", select="id", eq_column="author", eq_value=username)
+        if messages and len(messages) > 0:
+            for msg in messages:
+                supabase_delete("messages", "id", msg["id"])
+        
+        # Удаляем пользователя
+        supabase_delete("users", "username", username)
+        
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/delete_message', methods=['POST'])
+def delete_message():
+    """Пользователь удаляет своё сообщение"""
+    try:
+        data = request.json
+        message_id = data.get('message_id')
+        supabase_delete("messages", "id", message_id)
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/clear_chat', methods=['POST'])
+def clear_chat():
+    """Админ полностью очищает чат"""
+    try:
+        supabase_delete_all("messages")
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
 @app.route('/api/send_message', methods=['POST'])
 def send_message():
     try:
         data = request.json
-        supabase_post("messages", {
+        result = supabase_post("messages", {
             "author": data.get('author'),
             "text": data.get('text'),
             "time": data.get('time'),
             "timestamp": data.get('timestamp')
         })
-        return jsonify({'success': True})
+        return jsonify({'success': True, 'message_id': result.get('id') if result else None})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
