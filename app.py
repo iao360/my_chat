@@ -14,10 +14,14 @@ HEADERS = {
     "Content-Type": "application/json"
 }
 
-def supabase_get(table, select="*", eq_column=None, eq_value=None):
+def supabase_get(table, select="*", eq_column=None, eq_value=None, limit=None, order=None):
     url = f"{SUPABASE_URL}/rest/v1/{table}?select={select}"
     if eq_column and eq_value:
         url += f"&{eq_column}=eq.{eq_value}"
+    if order:
+        url += f"&order={order}"
+    if limit:
+        url += f"&limit={limit}"
     response = requests.get(url, headers=HEADERS)
     return response.json()
 
@@ -53,7 +57,8 @@ def get_pending():
 
 @app.route('/api/messages')
 def get_messages():
-    messages = supabase_get("messages", select="*")
+    # Загружаем последние 100 сообщений для скорости
+    messages = supabase_get("messages", select="*", order="timestamp.desc", limit=100)
     if isinstance(messages, dict) and "error" in messages:
         return jsonify([])
     messages.sort(key=lambda x: x.get("timestamp", 0))
