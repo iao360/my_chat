@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Общий чат - Python + SQLite</title>
+    <style>
+        body { font-family: Arial; margin: 0; padding: 0; }
+        .login-container { max-width: 400px; margin: 50px auto; padding: 20px; }
+        input, button { margin: 10px 0; padding: 8px; width: 100%; }
+        .hidden { display: none; }
+        .error { color: red; }
+        .success { color: green; }
+        .site-header {
+            background: #f0f0f0;
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .user-list-panel {
+            position: fixed;
+            top: 60px;
+            right: 20px;
+            width: 250px;
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            padding: 10px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .admin-panel {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #ffebcc;
+            border: 2px solid #ff9900;
+            border-radius: 5px;
+            padding: 10px;
+            width: 280px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .pending-user { background: white; margin: 5px 0; padding: 8px; border-radius: 3px; font-size: 12px; }
+        .pending-user button { margin: 3px; padding: 3px 8px; width: auto; font-size: 11px; }
+        .chat-container { margin: 20px; margin-right: 290px; border: 1px solid #ccc; border-radius: 5px; }
+        .chat-messages { height: 400px; overflow-y: auto; padding: 10px; background: #f9f9f9; border-bottom: 1px solid #ccc; }
+        .chat-message { margin: 10px 0; padding: 8px; background: white; border-radius: 5px; }
+        .chat-message strong { color: #0066cc; }
+        .chat-message .time { font-size: 11px; color: #999; margin-left: 10px; }
+        .chat-input-area { display: flex; padding: 10px; gap: 10px; }
+        .chat-input-area input { flex: 1; margin: 0; padding: 8px; }
+        .chat-input-area button { width: auto; margin: 0; padding: 8px 20px; background: #0066cc; color: white; border: none; border-radius: 3px; cursor: pointer; }
+        button { cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div id="loginBox" class="login-container">
+        <h2>Вход</h2>
+        <input type="text" id="loginName" placeholder="Ник"><br>
+        <input type="password" id="loginPass" placeholder="Пароль"><br>
+        <button onclick="login()">Войти</button>
+        <button onclick="showReg()">Создать аккаунт</button>
+        <p id="loginError" class="error"></p>
+    </div>
+
+    <div id="regBox" class="login-container hidden">
+        <h2>Регистрация</h2>
+        <input type="text" id="regName" placeholder="Придумайте ник"><br>
+        <input type="password" id="regPass" placeholder="Придумайте пароль"><br>
+        <button onclick="register()">Зарегистрироваться</button>
+        <button onclick="showLogin()">Назад ко входу</button>
+        <p id="regError" class="error"></p>
+        <p id="regSuccess" class="success"></p>
+    </div>
+
+    <div id="sitePage" class="hidden">
+        <div class="site-header">
+            <span>Добро пожаловать, <b id="userName"></b>!</span>
+            <button onclick="confirmLogout()">Выйти</button>
+        </div>
+        <div class="user-list-panel">
+            <h4>✅ Одобренные пользователи</h4>
+            <ul id="userList"></ul>
+        </div>
+        <div id="adminPanel" class="admin-panel hidden">
+            <h4>👑 Админ-панель</h4>
+            <div id="pendingList">Загрузка...</div>
+        </div>
+        <div class="chat-container">
+            <div class="chat-messages" id="chatMessages">Загрузка...</div>
+            <div class="chat-input-area">
+                <input type="text" id="chatInput" placeholder="Введите сообщение..." onkeypress="if(event.key==='Enter') sendMessage()">
+                <button onclick="sendMessage()">Отправить</button>
+            </div>
+        </div>
+        <div class="site-content" style="padding:20px;">
+            <h3>Общий чат с собственной базой данных</h3>
+            <p>Все сообщения хранятся в SQLite. Сервер работает на Python + Flask!</p>
+        </div>
+    </div>
+
+    <script>
+        let currentUser = null;
+        let updateInterval = null;
+        
+        async function apiCall(url, method = 'GET', body = null) {
+            let options = { method: method, headers: { 'Content-Type': 'application/json' } };
+            if (body) options.body = JSON.stringify(body);
+            let response = await fetch(url, options);
+            return await response.json();
+        }
+        
+        async function loadUsers() {
+            let users = await apiCall('/api/users');
+            let userList = document.getElementById('userList');
+            userList.innerHTML = '';
+            if (users.length === 0) {
+                userList.innerHTML = '<li>Нет одобренных пользователей</li>';
+            } else {
+                for (let name of users) {
+                    let li = document.createElement('li');
+                    li.textContent = name;
+                    userList.appendChild(li);
+                }
+            }
+        }
+        
+        async function loadPending() {
+            if (currentUser !== 'admin') return;
+            let pending = await apiCall('/api/pending');
+            let container = document.getElementById('pendingList');
+            if (pending.length === 0) {
+                container.innerHTML = '<p style="font-size:12px;">Нет заявок</p>';
+                return;
+            }
+            container.innerHTML = '';
+            for (let name of pending) {
+                let div = document.createElement('div');
+                div.className = 'pending-user';
+                div.innerHTML = '<strong>' + escapeHtml(name) + '</strong><br>' +
+                               '<button onclick="approveUser(\'' + name + '\')">✅ Одобрить</button> ' +
+                               '<button onclick="rejectUser(\'' + name + '\')">❌ Отклонить</button>';
+                container.appendChild(div);
+            }
+        }
+        
+        async function approveUser(name) {
+            await apiCall('/api/approve', 'POST', { username: name });
+            loadPending();
+            loadUsers();
+            alert('Пользователь ' + name + ' одобрен!');
+        }
+        
+        async function rejectUser(name) {
+            await apiCall('/api/reject', 'POST', { username: name });
+            loadPending();
+            alert('Пользователь ' + name + ' отклонён');
+        }
+        
+        async function loadMessages() {
+            let messages = await apiCall('/api/messages');
+            let container = document.getElementById('chatMessages');
+            if (messages.length === 0) {
+                container.innerHTML = '<div class="chat-message" style="text-align:center;">Нет сообщений</div>';
+                return;
+            }
+            container.innerHTML = '';
+            for (let msg of messages) {
+                let msgDiv = document.createElement('div');
+                msgDiv.className = 'chat-message';
+                msgDiv.innerHTML = '<strong>' + escapeHtml(msg.author) + '</strong>' +
+                                   '<span class="time">' + msg.time + '</span><br>' +
+                                   escapeHtml(msg.text);
+                container.appendChild(msgDiv);
+            }
+            container.scrollTop = container.scrollHeight;
+        }
+        
+        function escapeHtml(text) {
+            let div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        async function sendMessage() {
+            let input = document.getElementById('chatInput');
+            let text = input.value.trim();
+            if (!text) return;
+            let now = new Date();
+            let timeStr = now.getHours().toString().padStart(2,'0') + ':' + 
+                         now.getMinutes().toString().padStart(2,'0') + ':' +
+                         now.getSeconds().toString().padStart(2,'0');
+            await apiCall('/api/send_message', 'POST', {
+                author: currentUser,
+                text: text,
+                time: timeStr,
+                timestamp: Date.now()
+            });
+            input.value = '';
+            loadMessages();
+        }
+        
+        async function register() {
+            let name = document.getElementById('regName').value.trim();
+            let pass = document.getElementById('regPass').value.trim();
+            let regError = document.getElementById('regError');
+            let regSuccess = document.getElementById('regSuccess');
+            regError.innerText = '';
+            regSuccess.innerText = '';
+            
+            if (!name || !pass) {
+                regError.innerText = 'Заполните оба поля';
+                return;
+            }
+            if (name === 'admin') {
+                regError.innerText = 'Это имя зарезервировано';
+                return;
+            }
+            
+            let result = await apiCall('/api/register', 'POST', { username: name, password: pass });
+            if (result.success) {
+                regSuccess.innerText = 'Заявка отправлена! Ждите одобрения.';
+                document.getElementById('regName').value = '';
+                document.getElementById('regPass').value = '';
+                setTimeout(() => showLogin(), 2000);
+            } else {
+                regError.innerText = result.error;
+            }
+        }
+        
+        async function login() {
+            let name = document.getElementById('loginName').value.trim();
+            let pass = document.getElementById('loginPass').value.trim();
+            let loginError = document.getElementById('loginError');
+            loginError.innerText = '';
+            
+            let result = await apiCall('/api/login', 'POST', { username: name, password: pass });
+            if (result.success) {
+                currentUser = name;
+                showSite(name);
+            } else {
+                loginError.innerText = result.error || 'Неверный логин или пароль';
+            }
+        }
+        
+        async function showSite(name) {
+            document.getElementById('loginBox').classList.add('hidden');
+            document.getElementById('regBox').classList.add('hidden');
+            document.getElementById('sitePage').classList.remove('hidden');
+            document.getElementById('userName').innerText = name;
+            
+            await loadUsers();
+            await loadMessages();
+            
+            if (name === 'admin') {
+                document.getElementById('adminPanel').classList.remove('hidden');
+                await loadPending();
+            } else {
+                document.getElementById('adminPanel').classList.add('hidden');
+            }
+            
+            if (updateInterval) clearInterval(updateInterval);
+            updateInterval = setInterval(() => {
+                loadMessages();
+                loadUsers();
+                if (currentUser === 'admin') loadPending();
+            }, 2000);
+        }
+        
+        function confirmLogout() {
+            if (confirm('Действительно выйти?')) logout();
+        }
+        
+        function logout() {
+            if (updateInterval) clearInterval(updateInterval);
+            currentUser = null;
+            document.getElementById('loginName').value = '';
+            document.getElementById('loginPass').value = '';
+            document.getElementById('loginError').innerText = '';
+            document.getElementById('loginBox').classList.remove('hidden');
+            document.getElementById('sitePage').classList.add('hidden');
+        }
+        
+        function showReg() {
+            document.getElementById('loginBox').classList.add('hidden');
+            document.getElementById('regBox').classList.remove('hidden');
+        }
+        
+        function showLogin() {
+            document.getElementById('regBox').classList.add('hidden');
+            document.getElementById('loginBox').classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
