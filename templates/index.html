@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>Общий чат - с уведомлениями и картинками</title>
+    <title>Общий чат - с уведомлениями</title>
     <style>
         * {
             box-sizing: border-box;
@@ -61,7 +61,8 @@
             position: sticky;
             top: 0;
             z-index: 100;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            flex-wrap: wrap;
+            gap: 10px;
         }
         
         .site-header button {
@@ -70,11 +71,33 @@
             margin: 0;
         }
         
+        .notification-banner {
+            background: #e8f0fe;
+            padding: 10px 16px;
+            margin: 10px;
+            border-radius: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .notification-banner button {
+            width: auto;
+            margin: 0;
+            padding: 8px 16px;
+            background: #0066cc;
+        }
+        
+        .notification-banner .later {
+            background: #999;
+        }
+        
         .main-content {
             display: flex;
             flex-direction: column;
             padding: 12px;
-            padding-bottom: 80px;
         }
         
         .user-list-panel {
@@ -95,10 +118,6 @@
             margin: 0;
             padding-left: 20px;
             font-size: 14px;
-        }
-        
-        .user-list-panel li {
-            margin: 4px 0;
         }
         
         .admin-panel {
@@ -136,7 +155,6 @@
             border: 1px solid #e0e0e0;
             display: flex;
             flex-direction: column;
-            height: auto;
         }
         
         .chat-messages {
@@ -169,8 +187,10 @@
         
         .chat-message img {
             max-width: 100%;
+            max-height: 300px;
             border-radius: 12px;
             margin-top: 8px;
+            display: block;
         }
         
         .emoji-picker {
@@ -203,6 +223,7 @@
             flex: 1;
             margin: 0;
             font-size: 16px;
+            min-width: 150px;
         }
         
         .chat-input-area button {
@@ -211,12 +232,13 @@
             padding: 12px 20px;
         }
         
-        .file-input-label {
-            background: #e0e0e0;
-            padding: 12px 16px;
+        .image-preview {
+            display: none;
+            margin-top: 8px;
+            padding: 8px;
+            background: #f0f0f0;
             border-radius: 12px;
-            cursor: pointer;
-            font-size: 18px;
+            font-size: 12px;
         }
         
         @media (min-width: 768px) {
@@ -251,6 +273,11 @@
             .chat-messages {
                 height: 350px;
             }
+            
+            .notification-banner {
+                flex-direction: column;
+                text-align: center;
+            }
         }
     </style>
 </head>
@@ -280,6 +307,14 @@
             <button onclick="confirmLogout()">Выйти</button>
         </div>
         
+        <div id="notificationBanner" class="notification-banner hidden">
+            <span>🔔 Получать уведомления о новых сообщениях?</span>
+            <div>
+                <button id="enableNotificationsBtn">Да, включить</button>
+                <button id="laterNotificationsBtn" class="later">Позже</button>
+            </div>
+        </div>
+        
         <div class="main-content">
             <div class="user-list-panel">
                 <h4>✅ Пользователи</h4>
@@ -289,7 +324,7 @@
             <div class="chat-container">
                 <div class="chat-messages" id="chatMessages">Загрузка...</div>
                 <div class="chat-input-area">
-                    <div class="emoji-picker" id="emojiPicker">
+                    <div class="emoji-picker">
                         <button type="button" class="emoji-btn" onclick="addEmoji('😀')">😀</button>
                         <button type="button" class="emoji-btn" onclick="addEmoji('😂')">😂</button>
                         <button type="button" class="emoji-btn" onclick="addEmoji('❤️')">❤️</button>
@@ -297,13 +332,11 @@
                         <button type="button" class="emoji-btn" onclick="addEmoji('👍')">👍</button>
                         <button type="button" class="emoji-btn" onclick="addEmoji('🎉')">🎉</button>
                     </div>
-                    <div style="display: flex; gap: 8px; width: 100%;">
-                        <input type="text" id="chatInput" placeholder="Введите сообщение или вставьте ссылку на картинку..." onkeypress="if(event.key==='Enter') sendMessage()">
-                        <label class="file-input-label" title="Вставить ссылку на картинку">🖼️
-                            <input type="text" id="imageUrlInput" placeholder="Ссылка на картинку" style="display: none;">
-                        </label>
+                    <div style="display: flex; gap: 8px; width: 100%; flex-wrap: wrap;">
+                        <input type="text" id="chatInput" placeholder="Сообщение или ссылка на картинку (jpg/png/gif)..." onkeypress="if(event.key==='Enter') sendMessage()">
                         <button onclick="sendMessage()">Отправить</button>
                     </div>
+                    <div id="imagePreview" class="image-preview"></div>
                 </div>
             </div>
             
@@ -319,28 +352,67 @@
         let updateInterval = null;
         let lastMessageCount = 0;
         let notificationPermission = false;
+        let notificationAsked = false;
         
-        // КЛЮЧИ ДЛЯ localStorage
         const STORAGE_USER_KEY = 'chat_current_user';
+        const NOTIFICATION_ASKED_KEY = 'chat_notification_asked';
         
-        // Запрос разрешения на уведомления
+        // Проверка поддержки уведомлений
+        function isNotificationSupported() {
+            return 'Notification' in window;
+        }
+        
+        // Запрос разрешения на уведомления (с баннером)
         function requestNotificationPermission() {
-            if ('Notification' in window) {
-                Notification.requestPermission().then(perm => {
-                    notificationPermission = (perm === 'granted');
-                });
+            if (!isNotificationSupported()) {
+                console.log('Уведомления не поддерживаются');
+                return;
+            }
+            
+            Notification.requestPermission().then(perm => {
+                notificationPermission = (perm === 'granted');
+                if (notificationPermission) {
+                    document.getElementById('notificationBanner').classList.add('hidden');
+                }
+            });
+        }
+        
+        // Показать баннер с запросом уведомлений (один раз)
+        function showNotificationBanner() {
+            if (!isNotificationSupported()) return;
+            if (notificationPermission) return;
+            if (localStorage.getItem(NOTIFICATION_ASKED_KEY) === 'true') return;
+            
+            document.getElementById('notificationBanner').classList.remove('hidden');
+        }
+        
+        function hideNotificationBanner(remember = true) {
+            document.getElementById('notificationBanner').classList.add('hidden');
+            if (remember) {
+                localStorage.setItem(NOTIFICATION_ASKED_KEY, 'true');
             }
         }
         
         // Отправка уведомления
         function sendNotification(title, body) {
             if (notificationPermission && document.hidden) {
-                new Notification(title, { body: body, icon: 'https://cdn-icons-png.flaticon.com/512/4712/4712109.png' });
+                try {
+                    new Notification(title, { 
+                        body: body, 
+                        icon: 'https://cdn-icons-png.flaticon.com/512/4712/4712109.png',
+                        silent: false
+                    });
+                } catch(e) {
+                    console.log('Ошибка уведомления:', e);
+                }
             }
         }
         
         async function apiCall(url, method = 'GET', body = null) {
-            let options = { method: method, headers: { 'Content-Type': 'application/json' } };
+            let options = { 
+                method: method, 
+                headers: { 'Content-Type': 'application/json' } 
+            };
             if (body) options.body = JSON.stringify(body);
             let response = await fetch(url, options);
             return await response.json();
@@ -414,11 +486,21 @@
         }
         
         function formatMessage(text) {
-            let imageRegex = /(https?:\/\/[^\s]+\.(jpg|jpeg|png|gif|webp))/gi;
             let formatted = escapeHtml(text);
+            
+            // Поддержка картинок по ссылке (jpg, jpeg, png, gif, webp)
+            let imageRegex = /(https?:\/\/[^\s]+\.(jpg|jpeg|png|gif|webp))/gi;
             formatted = formatted.replace(imageRegex, (match) => {
-                return `<img src="${match}" alt="картинка" style="max-width:100%; border-radius:12px; margin-top:8px;">`;
+                return `<img src="${match}" alt="картинка" loading="lazy" onerror="this.style.display='none'">`;
             });
+            
+            // Ссылки делаем кликабельными
+            let urlRegex = /(https?:\/\/[^\s]+)/gi;
+            formatted = formatted.replace(urlRegex, (match) => {
+                if (match.match(/\.(jpg|jpeg|png|gif|webp)$/i)) return match;
+                return `<a href="${match}" target="_blank" rel="noopener noreferrer">${match}</a>`;
+            });
+            
             return formatted;
         }
         
@@ -426,11 +508,14 @@
             try {
                 let messages = await apiCall('/api/messages');
                 let container = document.getElementById('chatMessages');
+                if (!container) return;
+                
                 if (messages.length === 0) {
                     container.innerHTML = '<div class="chat-message" style="text-align:center;">Нет сообщений</div>';
                     return;
                 }
                 
+                // Уведомление о новых сообщениях
                 if (messages.length > lastMessageCount && lastMessageCount > 0 && currentUser) {
                     let lastMsg = messages[messages.length - 1];
                     if (lastMsg.author !== currentUser) {
@@ -457,12 +542,6 @@
         async function sendMessage() {
             let input = document.getElementById('chatInput');
             let text = input.value.trim();
-            
-            let imageUrl = document.getElementById('imageUrlInput').value.trim();
-            if (imageUrl && (imageUrl.match(/\.(jpg|jpeg|png|gif|webp)$/i) || imageUrl.startsWith('http'))) {
-                text = text + (text ? ' ' : '') + imageUrl;
-                document.getElementById('imageUrlInput').value = '';
-            }
             
             if (!text) return;
             
@@ -517,10 +596,8 @@
             let result = await apiCall('/api/login', 'POST', { username: name, password: pass });
             if (result.success) {
                 currentUser = name;
-                // СОХРАНЯЕМ В localStorage
                 localStorage.setItem(STORAGE_USER_KEY, name);
                 showSite(name);
-                requestNotificationPermission();
             } else {
                 loginError.innerText = result.error || 'Неверный логин или пароль';
             }
@@ -547,7 +624,12 @@
                 loadMessages();
                 loadUsers();
                 if (currentUser === 'admin') loadPending();
-            }, 2000);
+            }, 3000);
+            
+            // Показываем запрос на уведомления (один раз)
+            setTimeout(() => {
+                showNotificationBanner();
+            }, 500);
         }
         
         function confirmLogout() {
@@ -558,13 +640,13 @@
             if (updateInterval) clearInterval(updateInterval);
             currentUser = null;
             lastMessageCount = 0;
-            // УДАЛЯЕМ ИЗ localStorage
             localStorage.removeItem(STORAGE_USER_KEY);
             document.getElementById('loginName').value = '';
             document.getElementById('loginPass').value = '';
             document.getElementById('loginError').innerText = '';
             document.getElementById('loginBox').classList.remove('hidden');
             document.getElementById('sitePage').classList.add('hidden');
+            document.getElementById('notificationBanner').classList.add('hidden');
         }
         
         function showReg() {
@@ -577,31 +659,25 @@
             document.getElementById('loginBox').classList.remove('hidden');
         }
         
-        // ========== АВТОМАТИЧЕСКАЯ ПРОВЕРКА ПРИ ЗАГРУЗКЕ СТРАНИЦЫ ==========
+        // Автовход
         async function checkAutoLogin() {
             let savedUser = localStorage.getItem(STORAGE_USER_KEY);
             if (savedUser) {
-                // Проверяем, действительно ли пользователь существует в базе
                 try {
                     let users = await apiCall('/api/users');
-                    // Админ всегда может войти
                     if (savedUser === 'admin') {
                         currentUser = savedUser;
                         showSite(savedUser);
-                        requestNotificationPermission();
                         return;
                     }
-                    // Проверяем обычного пользователя
                     if (users.includes(savedUser)) {
                         currentUser = savedUser;
                         showSite(savedUser);
-                        requestNotificationPermission();
                         return;
                     }
                 } catch(e) {
                     console.error('Ошибка автовхода:', e);
                 }
-                // Если пользователь не найден в базе — очищаем localStorage
                 localStorage.removeItem(STORAGE_USER_KEY);
             }
         }
@@ -612,7 +688,24 @@
             }
         });
         
-        // ЗАПУСКАЕМ ПРОВЕРКУ ПРИ ЗАГРУЗКЕ СТРАНИЦЫ
+        // Кнопки уведомлений
+        document.addEventListener('DOMContentLoaded', function() {
+            const enableBtn = document.getElementById('enableNotificationsBtn');
+            const laterBtn = document.getElementById('laterNotificationsBtn');
+            
+            if (enableBtn) {
+                enableBtn.addEventListener('click', () => {
+                    requestNotificationPermission();
+                    hideNotificationBanner(true);
+                });
+            }
+            if (laterBtn) {
+                laterBtn.addEventListener('click', () => {
+                    hideNotificationBanner(true);
+                });
+            }
+        });
+        
         checkAutoLogin();
     </script>
 </body>
