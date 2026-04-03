@@ -165,6 +165,14 @@
         .back-btn, .theme-toggle { background: #ff9800; }
         .back-btn { background: #0066cc; }
         
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-size: 18px;
+        }
+        
         @media (max-width: 768px) {
             .main-content { flex-direction: column; height: auto; }
             .users-panel { width: 100%; max-height: 200px; }
@@ -173,41 +181,45 @@
     </style>
 </head>
 <body class="light">
-    <div class="site-header">
-        <span>💬 Личный чат</span>
-        <div style="display: flex; gap: 10px;">
-            <button class="back-btn" onclick="goBack()">🏠 Общий чат</button>
-            <button class="theme-toggle" onclick="toggleTheme()">🌓 Тема</button>
-            <button onclick="logout()">Выйти</button>
-        </div>
-    </div>
+    <div class="loading" id="loading">Загрузка...</div>
     
-    <div class="main-content">
-        <div class="users-panel">
-            <h4>👥 Собеседники</h4>
-            <ul id="usersList"></ul>
+    <div id="mainApp" style="display: none;">
+        <div class="site-header">
+            <span>💬 Личный чат</span>
+            <div style="display: flex; gap: 10px;">
+                <button class="back-btn" onclick="goBack()">🏠 Общий чат</button>
+                <button class="theme-toggle" onclick="toggleTheme()">🌓 Тема</button>
+                <button onclick="logout()">Выйти</button>
+            </div>
         </div>
         
-        <div class="chat-container">
-            <div class="chat-header">
-                <span id="selectedUserName">Выберите собеседника</span>
-                <span id="selectedUserActive" style="font-size: 12px; margin-left: 10px;"></span>
+        <div class="main-content">
+            <div class="users-panel">
+                <h4>👥 Собеседники</h4>
+                <ul id="usersList"></ul>
             </div>
-            <div class="chat-messages" id="privateMessages">Выберите собеседника</div>
-            <div class="chat-input-area">
-                <div class="emoji-picker">
-                    <button class="emoji-btn" onclick="addEmoji('😀')">😀</button>
-                    <button class="emoji-btn" onclick="addEmoji('😂')">😂</button>
-                    <button class="emoji-btn" onclick="addEmoji('❤️')">❤️</button>
-                    <button class="emoji-btn" onclick="addEmoji('🔥')">🔥</button>
-                    <button class="emoji-btn" onclick="addEmoji('👍')">👍</button>
-                    <button class="emoji-btn" onclick="addEmoji('🎉')">🎉</button>
+            
+            <div class="chat-container">
+                <div class="chat-header">
+                    <span id="selectedUserName">Выберите собеседника</span>
+                    <span id="selectedUserActive" style="font-size: 12px; margin-left: 10px;"></span>
                 </div>
-                <div style="display: flex; gap: 8px; width: 100%; flex-wrap: wrap;">
-                    <input type="text" id="privateInput" placeholder="Сообщение..." onkeypress="if(event.key==='Enter') sendPrivateMessage()">
-                    <input type="file" id="imageUpload" accept="image/*" style="display:none;" onchange="handleImageUpload(this)">
-                    <button class="image-upload-btn" onclick="document.getElementById('imageUpload').click()">📷</button>
-                    <button onclick="sendPrivateMessage()">Отправить</button>
+                <div class="chat-messages" id="privateMessages">Выберите собеседника</div>
+                <div class="chat-input-area">
+                    <div class="emoji-picker">
+                        <button class="emoji-btn" onclick="addEmoji('😀')">😀</button>
+                        <button class="emoji-btn" onclick="addEmoji('😂')">😂</button>
+                        <button class="emoji-btn" onclick="addEmoji('❤️')">❤️</button>
+                        <button class="emoji-btn" onclick="addEmoji('🔥')">🔥</button>
+                        <button class="emoji-btn" onclick="addEmoji('👍')">👍</button>
+                        <button class="emoji-btn" onclick="addEmoji('🎉')">🎉</button>
+                    </div>
+                    <div style="display: flex; gap: 8px; width: 100%; flex-wrap: wrap;">
+                        <input type="text" id="privateInput" placeholder="Сообщение..." onkeypress="if(event.key==='Enter') sendPrivateMessage()">
+                        <input type="file" id="imageUpload" accept="image/*" style="display:none;" onchange="handleImageUpload(this)">
+                        <button class="image-upload-btn" onclick="document.getElementById('imageUpload').click()">📷</button>
+                        <button onclick="sendPrivateMessage()">Отправить</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -386,25 +398,66 @@
             } catch(e) { document.getElementById(tempId)?.remove(); alert('Ошибка'); }
         }
         
-        async function checkAutoLogin() {
-            let saved = localStorage.getItem('chat_current_user');
-            if (!saved) { window.location.href = '/'; return; }
-            currentUser = saved;
-            let res = await apiCall('/api/users');
-            if (!res.some(u => u.username === saved) && saved !== 'admin') { window.location.href = '/'; return; }
-            let loginRes = await apiCall('/api/login', 'POST', { username: saved, password: '' });
+        async function checkAuth() {
+            let savedUser = localStorage.getItem('chat_current_user');
+            if (!savedUser) {
+                window.location.href = '/';
+                return false;
+            }
+            
+            // Проверяем, существует ли пользователь в базе
+            let users = await apiCall('/api/users');
+            let userExists = users.some(u => u.username === savedUser);
+            
+            if (!userExists && savedUser !== 'admin') {
+                localStorage.removeItem('chat_current_user');
+                window.location.href = '/';
+                return false;
+            }
+            
+            return savedUser;
+        }
+        
+        async function init() {
+            // Проверяем авторизацию
+            let user = await checkAuth();
+            if (!user) return;
+            
+            currentUser = user;
+            
+            // Получаем данные пользователя
+            let loginRes = await apiCall('/api/login', 'POST', { username: currentUser, password: '' });
             if (loginRes.success) {
                 currentUserColor = loginRes.color || '#0066cc';
                 currentTheme = loginRes.theme || 'light';
                 document.body.className = currentTheme;
                 localStorage.setItem('chat_theme', currentTheme);
-                await loadUsers();
-                updateActiveStatus();
-                if (activeUpdateInterval) clearInterval(activeUpdateInterval);
-                activeUpdateInterval = setInterval(() => updateActiveStatus(), 15000);
-                if (updateInterval) clearInterval(updateInterval);
-                updateInterval = setInterval(() => { loadUsers(); if (selectedUser) loadPrivateMessages(); }, 2000);
-            } else { window.location.href = '/'; }
+            } else {
+                // Если не удалось получить данные, пробуем просто загрузить пользователей
+                let users = await apiCall('/api/users');
+                let userData = users.find(u => u.username === currentUser);
+                if (userData) {
+                    currentUserColor = userData.color || '#0066cc';
+                }
+            }
+            
+            // Скрываем загрузку, показываем приложение
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('mainApp').style.display = 'block';
+            
+            // Загружаем данные
+            await loadUsers();
+            updateActiveStatus();
+            
+            // Запускаем интервалы
+            if (activeUpdateInterval) clearInterval(activeUpdateInterval);
+            activeUpdateInterval = setInterval(() => updateActiveStatus(), 15000);
+            
+            if (updateInterval) clearInterval(updateInterval);
+            updateInterval = setInterval(() => { 
+                loadUsers(); 
+                if (selectedUser) loadPrivateMessages(); 
+            }, 2000);
         }
         
         function logout() {
@@ -412,11 +465,8 @@
             window.location.href = '/';
         }
         
-        document.addEventListener('DOMContentLoaded', () => {
-            const savedTheme = localStorage.getItem('chat_theme');
-            if (savedTheme) { document.body.className = savedTheme; currentTheme = savedTheme; }
-            checkAutoLogin();
-        });
+        // Запускаем инициализацию
+        init();
     </script>
 </body>
 </html>
