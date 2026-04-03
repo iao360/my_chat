@@ -1,8 +1,7 @@
 from flask import Flask, render_template, request, jsonify
 from datetime import datetime
 import requests
-import base64
-import re
+import time
 
 app = Flask(__name__)
 
@@ -16,19 +15,9 @@ HEADERS = {
     "Content-Type": "application/json"
 }
 
-# Добавляем таблицу цветов, если её нет
-def init_colors_table():
-    try:
-        # Проверяем, есть ли колонка color в таблице users
-        url = f"{SUPABASE_URL}/rest/v1/users?select=color&limit=1"
-        response = requests.get(url, headers=HEADERS)
-        if response.status_code == 200:
-            return
-    except:
-        pass
-    print("Таблица users уже содержит color или будет создана позже")
-
-init_colors_table()
+# Хранилище активных пользователей (в памяти сервера)
+active_users = {}
+ACTIVE_TIMEOUT = 30  # секунд
 
 def supabase_get(table, select="*", eq_column=None, eq_value=None, limit=None, order=None):
     url = f"{SUPABASE_URL}/rest/v1/{table}?select={select}"
@@ -47,7 +36,6 @@ def supabase_post(table, data):
     return response.json() if response.status_code == 201 else None
 
 def supabase_patch(table, eq_column, eq_value, data):
-    """Обновление записи"""
     url = f"{SUPABASE_URL}/rest/v1/{table}?{eq_column}=eq.{eq_value}"
     response = requests.patch(url, headers=HEADERS, json=data)
     return response.status_code == 200
@@ -58,7 +46,6 @@ def supabase_delete(table, eq_column, eq_value):
     return response.status_code == 204
 
 def supabase_delete_all(table):
-    """Удалить все записи из таблицы"""
     url = f"{SUPABASE_URL}/rest/v1/{table}?select=id"
     response = requests.get(url, headers=HEADERS)
     if response.status_code == 200:
@@ -76,7 +63,27 @@ def get_users():
     users = supabase_get("users", select="username,color", eq_column="is_approved", eq_value=1)
     if isinstance(users, dict) and "error" in users:
         return jsonify([])
+    
+    # Добавляем статус онлайн
+    for user in users:
+        username = user.get("username")
+        if username in active_users and time.time() - active_users[username] < ACTIVE_TIMEOUT:
+            user["online"] = True
+        else:
+            user["online"] = False
+            if username in active_users:
+                del active_users[username]
+    
     return jsonify(users)
+
+@app.route('/api/active', methods=['POST'])
+def update_active():
+    """Обновляет статус активности пользователя"""
+    data = request.json
+    username = data.get('username')
+    if username:
+        active_users[username] = time.time()
+    return jsonify({'success': True})
 
 @app.route('/api/pending')
 def get_pending():
@@ -93,7 +100,6 @@ def get_messages():
         return jsonify([])
     messages.sort(key=lambda x: x.get("timestamp", 0))
     
-    # Добавляем цвет автора к каждому сообщению
     users = supabase_get("users", select="username,color", eq_column="is_approved", eq_value=1)
     user_colors = {u["username"]: u.get("color", "#0066cc") for u in users if isinstance(u, dict)}
     
@@ -135,6 +141,7 @@ def login():
         if users and len(users) > 0:
             user = users[0]
             if user.get("password") == password and user.get("is_approved") == 1:
+                active_users[username] = time.time()
                 return jsonify({'success': True, 'color': user.get("color", "#0066cc")})
         
         return jsonify({'success': False, 'error': 'Неверный логин или пароль'})
@@ -182,6 +189,8 @@ def delete_user():
                 supabase_delete("messages", "id", msg["id"])
         
         supabase_delete("users", "username", username)
+        if username in active_users:
+            del active_users[username]
         
         return jsonify({'success': True})
     except Exception as e:
@@ -202,23 +211,6 @@ def clear_chat():
     try:
         supabase_delete_all("messages")
         return jsonify({'success': True})
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)})
-
-@app.route('/api/upload_image', methods=['POST'])
-def upload_image():
-    try:
-        data = request.json
-        image_data = data.get('image')
-        
-        # Проверяем base64 строку
-        if image_data and image_data.startswith('data:image'):
-            # Ограничиваем размер (500KB)
-            if len(image_data) > 700000:
-                return jsonify({'success': False, 'error': 'Изображение слишком большое (макс 500KB)'})
-            return jsonify({'success': True, 'image_url': image_data})
-        
-        return jsonify({'success': False, 'error': 'Неверный формат изображения'})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
