@@ -297,5 +297,15 @@ def send_message():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
+@app.route('/api/delete_private_message', methods=['POST'])
+def delete_private_message():
+    try:
+        data = request.json
+        message_id = data.get('message_id')
+        supabase_delete("private_messages", "id", message_id)
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
