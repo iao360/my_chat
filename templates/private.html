@@ -233,6 +233,10 @@
         let updateInterval = null;
         let activeUpdateInterval = null;
         
+        // Переменные для умной прокрутки
+        let isUserScrolling = false;
+        let scrollTimeout = null;
+        
         function goBack() { window.location.href = '/'; }
         
         function toggleTheme() {
@@ -327,6 +331,31 @@
             return `${days} д назад`;
         }
         
+        // Проверка, находится ли пользователь внизу чата
+        function isAtBottom() {
+            const container = document.getElementById('privateMessages');
+            if (!container) return true;
+            return container.scrollHeight - container.scrollTop - container.clientHeight < 50;
+        }
+        
+        // Прокрутка вниз (только если пользователь не скроллит)
+        function scrollToBottomIfNeeded() {
+            if (!isUserScrolling && isAtBottom()) {
+                const container = document.getElementById('privateMessages');
+                if (container) {
+                    container.scrollTop = container.scrollHeight;
+                }
+            }
+        }
+        
+        // Принудительная прокрутка вниз (при отправке сообщения)
+        function forceScrollToBottom() {
+            const container = document.getElementById('privateMessages');
+            if (container) {
+                container.scrollTop = container.scrollHeight;
+            }
+        }
+        
         async function loadUsers() {
             try {
                 let users = await apiCall('/api/users');
@@ -364,6 +393,9 @@
             let messages = await apiCall('/api/private_messages', 'POST', { user1: currentUser, user2: selectedUser });
             let container = document.getElementById('privateMessages');
             if (!messages.length) { container.innerHTML = '<div class="chat-message">Нет сообщений</div>'; return; }
+            
+            let needScroll = !isUserScrolling && isAtBottom();
+            
             container.innerHTML = '';
             for (let msg of messages) {
                 let div = document.createElement('div');
@@ -372,7 +404,10 @@
                 div.innerHTML = `<strong style="color:${msg.author_color || '#0066cc'}">${escapeHtml(isFromMe ? 'Вы' : msg.from_user)}</strong><span class="time">${msg.time}</span><br>${formatMessage(msg.text)}`;
                 container.appendChild(div);
             }
-            container.scrollTop = container.scrollHeight;
+            
+            if (needScroll) {
+                container.scrollTop = container.scrollHeight;
+            }
         }
         
         async function sendPrivateMessage() {
@@ -389,12 +424,13 @@
             tempDiv.id = tempId;
             tempDiv.innerHTML = `<strong style="color:${currentUserColor}">Вы</strong><span class="time">${timeStr}</span><br>${formatMessage(text)}<div class="message-actions"><small>⏳ отправляется...</small></div>`;
             container.appendChild(tempDiv);
-            container.scrollTop = container.scrollHeight;
+            forceScrollToBottom();
             input.value = '';
             try {
                 await apiCall('/api/send_private', 'POST', { from_user: currentUser, to_user: selectedUser, text: text, time: timeStr, timestamp: Date.now() });
                 document.getElementById(tempId)?.remove();
-                loadPrivateMessages();
+                await loadPrivateMessages();
+                forceScrollToBottom();
             } catch(e) { document.getElementById(tempId)?.remove(); alert('Ошибка'); }
         }
         
@@ -405,7 +441,6 @@
                 return false;
             }
             
-            // Проверяем, существует ли пользователь в базе
             let users = await apiCall('/api/users');
             let userExists = users.some(u => u.username === savedUser);
             
@@ -419,13 +454,11 @@
         }
         
         async function init() {
-            // Проверяем авторизацию
             let user = await checkAuth();
             if (!user) return;
             
             currentUser = user;
             
-            // Получаем данные пользователя
             let loginRes = await apiCall('/api/login', 'POST', { username: currentUser, password: '' });
             if (loginRes.success) {
                 currentUserColor = loginRes.color || '#0066cc';
@@ -433,7 +466,6 @@
                 document.body.className = currentTheme;
                 localStorage.setItem('chat_theme', currentTheme);
             } else {
-                // Если не удалось получить данные, пробуем просто загрузить пользователей
                 let users = await apiCall('/api/users');
                 let userData = users.find(u => u.username === currentUser);
                 if (userData) {
@@ -441,15 +473,12 @@
                 }
             }
             
-            // Скрываем загрузку, показываем приложение
             document.getElementById('loading').style.display = 'none';
             document.getElementById('mainApp').style.display = 'block';
             
-            // Загружаем данные
             await loadUsers();
             updateActiveStatus();
             
-            // Запускаем интервалы
             if (activeUpdateInterval) clearInterval(activeUpdateInterval);
             activeUpdateInterval = setInterval(() => updateActiveStatus(), 15000);
             
@@ -458,6 +487,19 @@
                 loadUsers(); 
                 if (selectedUser) loadPrivateMessages(); 
             }, 2000);
+            
+            // Отслеживаем скролл пользователя
+            const chatContainer = document.getElementById('privateMessages');
+            if (chatContainer) {
+                chatContainer.addEventListener('scroll', () => {
+                    isUserScrolling = true;
+                    if (scrollTimeout) clearTimeout(scrollTimeout);
+                    scrollTimeout = setTimeout(() => {
+                        isUserScrolling = false;
+                        scrollToBottomIfNeeded();
+                    }, 300);
+                });
+            }
         }
         
         function logout() {
@@ -465,7 +507,6 @@
             window.location.href = '/';
         }
         
-        // Запускаем инициализацию
         init();
     </script>
 </body>
