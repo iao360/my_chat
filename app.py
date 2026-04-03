@@ -48,6 +48,10 @@ def supabase_delete(table, eq_column, eq_value):
 def index():
     return render_template('index.html')
 
+@app.route('/private')
+def private():
+    return render_template('private.html')
+
 @app.route('/api/users')
 def get_users():
     users = supabase_get("users", select="username,color,last_active,theme", eq_column="is_approved", eq_value=1)
