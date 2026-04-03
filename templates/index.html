@@ -3,24 +3,54 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>Общий чат</title>
+    <title>Чат - общий и личный</title>
     <style>
-        * {
-            box-sizing: border-box;
+        * { box-sizing: border-box; }
+        
+        /* Светлая тема (по умолчанию) */
+        body.light {
+            --bg: #f5f5f5;
+            --card-bg: white;
+            --text: #333;
+            --border: #e0e0e0;
+            --header-bg: white;
+            --msg-bg: white;
+            --input-bg: white;
+            --online: #00cc44;
+            --offline: #ccc;
+            --admin-bg: #fff8e7;
+            --admin-border: #ffe0a3;
+        }
+        
+        /* Тёмная тема */
+        body.dark {
+            --bg: #1a1a2e;
+            --card-bg: #16213e;
+            --text: #eee;
+            --border: #2c3e50;
+            --header-bg: #0f3460;
+            --msg-bg: #1a1a2e;
+            --input-bg: #0f3460;
+            --online: #00ff88;
+            --offline: #555;
+            --admin-bg: #2c3e50;
+            --admin-border: #f39c12;
         }
         
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             margin: 0;
             padding: 0;
-            background: #f5f5f5;
+            background: var(--bg);
+            color: var(--text);
+            transition: background 0.3s, color 0.3s;
         }
         
         .login-container {
             max-width: 400px;
             margin: 50px auto;
             padding: 20px;
-            background: white;
+            background: var(--card-bg);
             border-radius: 16px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
@@ -29,9 +59,11 @@
             margin: 10px 0;
             padding: 12px;
             width: 100%;
-            border: 1px solid #ddd;
+            border: 1px solid var(--border);
             border-radius: 12px;
             font-size: 16px;
+            background: var(--input-bg);
+            color: var(--text);
         }
         
         button {
@@ -40,11 +72,6 @@
             border: none;
             cursor: pointer;
             font-weight: 600;
-            transition: background 0.2s;
-        }
-        
-        button:active {
-            background: #0052a3;
         }
         
         .color-option {
@@ -57,22 +84,18 @@
             border: 2px solid transparent;
         }
         
-        .color-option.selected {
-            border: 3px solid #333;
-            transform: scale(1.1);
-        }
-        
+        .color-option.selected { border: 3px solid #333; transform: scale(1.1); }
         .hidden { display: none; }
         .error { color: red; font-size: 14px; }
         .success { color: green; font-size: 14px; }
         
         .site-header {
-            background: white;
+            background: var(--header-bg);
             padding: 12px 16px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-bottom: 1px solid #e0e0e0;
+            border-bottom: 1px solid var(--border);
             position: sticky;
             top: 0;
             z-index: 100;
@@ -80,10 +103,27 @@
             gap: 10px;
         }
         
-        .site-header button {
-            width: auto;
-            padding: 8px 16px;
+        .site-header button { width: auto; padding: 8px 16px; margin: 0; }
+        
+        .tab-bar {
+            display: flex;
+            gap: 10px;
+            padding: 10px;
+            background: var(--card-bg);
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .tab-btn {
+            flex: 1;
             margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+        
+        .tab-btn.active {
+            background: #0066cc;
+            color: white;
         }
         
         .notification-banner {
@@ -98,12 +138,6 @@
             gap: 10px;
         }
         
-        .notification-banner button {
-            width: auto;
-            margin: 0;
-            padding: 8px 16px;
-        }
-        
         .main-content {
             display: flex;
             flex-direction: column;
@@ -111,31 +145,25 @@
         }
         
         .user-list-panel {
-            background: white;
+            background: var(--card-bg);
             border-radius: 16px;
             padding: 12px;
             margin-bottom: 12px;
-            border: 1px solid #e0e0e0;
+            border: 1px solid var(--border);
         }
         
-        .user-list-panel h4 {
-            margin: 0 0 8px 0;
-            font-size: 14px;
-            color: #666;
-        }
-        
-        .user-list-panel ul {
-            margin: 0;
-            padding-left: 20px;
-            font-size: 14px;
-        }
-        
+        .user-list-panel h4 { margin: 0 0 8px 0; font-size: 14px; }
+        .user-list-panel ul { margin: 0; padding-left: 20px; font-size: 14px; }
         .user-list-panel li {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin: 5px 0;
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 8px;
         }
+        .user-list-panel li:hover { background: var(--border); }
         
         .online-indicator {
             display: inline-block;
@@ -144,15 +172,8 @@
             border-radius: 10px;
             margin-right: 8px;
         }
-        
-        .online-indicator.online {
-            background: #00cc44;
-            box-shadow: 0 0 5px #00cc44;
-        }
-        
-        .online-indicator.offline {
-            background: #ccc;
-        }
+        .online-indicator.online { background: var(--online); }
+        .online-indicator.offline { background: var(--offline); }
         
         .delete-user-btn {
             background: #dc3545;
@@ -160,47 +181,31 @@
             font-size: 11px;
             width: auto;
             margin: 0;
+            cursor: pointer;
         }
         
         .admin-panel {
-            background: #fff8e7;
+            background: var(--admin-bg);
             border-radius: 16px;
             padding: 12px;
             margin-bottom: 12px;
-            border: 1px solid #ffe0a3;
-        }
-        
-        .admin-panel h4 {
-            margin: 0 0 8px 0;
-            color: #cc6600;
-        }
-        
-        .admin-panel button {
-            width: auto;
-            padding: 8px 16px;
-            margin: 5px 5px 0 0;
+            border: 1px solid var(--admin-border);
         }
         
         .pending-user {
-            background: white;
+            background: var(--card-bg);
             margin: 8px 0;
             padding: 10px;
             border-radius: 12px;
             font-size: 14px;
         }
-        
-        .pending-user button {
-            width: auto;
-            padding: 6px 12px;
-            margin: 5px 5px 0 0;
-            font-size: 13px;
-        }
+        .pending-user button { width: auto; padding: 6px 12px; margin: 5px 5px 0 0; font-size: 13px; }
         
         .chat-container {
-            background: white;
+            background: var(--card-bg);
             border-radius: 16px;
             overflow: hidden;
-            border: 1px solid #e0e0e0;
+            border: 1px solid var(--border);
             display: flex;
             flex-direction: column;
         }
@@ -209,155 +214,81 @@
             height: 400px;
             overflow-y: auto;
             padding: 12px;
-            background: #fafafa;
+            background: var(--bg);
         }
         
         .chat-message {
             margin: 8px 0;
             padding: 10px 12px;
-            background: white;
+            background: var(--msg-bg);
             border-radius: 16px;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
             word-wrap: break-word;
-            max-width: 100%;
             position: relative;
+            border: 1px solid var(--border);
         }
         
-        .chat-message strong {
-            font-size: 14px;
-        }
-        
-        .chat-message .time {
-            font-size: 10px;
-            color: #999;
-            margin-left: 8px;
-        }
-        
+        .chat-message.sending { opacity: 0.7; }
+        .chat-message .time { font-size: 10px; color: #999; margin-left: 8px; }
         .chat-message img {
             max-width: 100%;
             max-height: 300px;
             border-radius: 12px;
             margin-top: 8px;
-            display: block;
             cursor: pointer;
         }
+        .message-actions { margin-top: 8px; text-align: right; }
+        .delete-msg-btn { background: #dc3545; padding: 4px 8px; font-size: 11px; width: auto; margin: 0; }
         
-        .message-actions {
-            margin-top: 8px;
-            text-align: right;
-        }
-        
-        .delete-msg-btn {
-            background: #dc3545;
-            padding: 4px 8px;
-            font-size: 11px;
-            width: auto;
-            margin: 0;
-        }
-        
-        .emoji-picker {
-            display: inline-flex;
-            gap: 8px;
-            flex-wrap: wrap;
-            margin-bottom: 8px;
-        }
-        
+        .emoji-picker { display: inline-flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
         .emoji-btn {
             width: 40px;
             height: 40px;
             padding: 0;
             font-size: 22px;
-            background: #f0f0f0;
-            color: #333;
+            background: var(--bg);
             border-radius: 12px;
             cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
         }
         
         .chat-input-area {
             display: flex;
             padding: 12px;
             gap: 8px;
-            background: white;
-            border-top: 1px solid #e0e0e0;
+            background: var(--card-bg);
+            border-top: 1px solid var(--border);
             flex-wrap: wrap;
         }
+        .chat-input-area input { flex: 1; margin: 0; font-size: 16px; min-width: 150px; }
+        .chat-input-area button { width: auto; margin: 0; padding: 12px 20px; }
+        .image-upload-btn { background: #28a745; }
         
-        .chat-input-area input {
-            flex: 1;
-            margin: 0;
-            font-size: 16px;
-            min-width: 150px;
-        }
-        
-        .chat-input-area button {
+        .theme-toggle {
+            background: #ff9800;
             width: auto;
-            margin: 0;
-            padding: 12px 20px;
+            padding: 8px 16px;
         }
         
-        .image-upload-btn {
-            background: #28a745;
-        }
-        
-        .image-preview {
-            display: none;
-            margin-top: 8px;
-            padding: 8px;
-            background: #f0f0f0;
-            border-radius: 12px;
-            text-align: center;
-        }
-        
-        .image-preview img {
-            max-width: 100%;
-            max-height: 150px;
-            border-radius: 8px;
+        .unread-badge {
+            background: red;
+            color: white;
+            border-radius: 10px;
+            padding: 2px 6px;
+            font-size: 10px;
+            margin-left: 5px;
         }
         
         @media (min-width: 768px) {
-            .main-content {
-                flex-direction: row;
-                gap: 20px;
-                align-items: flex-start;
-            }
-            
-            .user-list-panel {
-                width: 280px;
-                position: sticky;
-                top: 70px;
-            }
-            
-            .chat-container {
-                flex: 1;
-            }
-            
-            .admin-panel {
-                width: 300px;
-                position: sticky;
-                top: 70px;
-            }
+            .main-content { flex-direction: row; gap: 20px; align-items: flex-start; }
+            .user-list-panel { width: 280px; position: sticky; top: 70px; }
+            .chat-container { flex: 1; }
+            .admin-panel { width: 300px; position: sticky; top: 70px; }
         }
-        
         @media (max-width: 767px) {
-            .site-header span {
-                font-size: 14px;
-            }
-            
-            .chat-messages {
-                height: 350px;
-            }
-            
-            .notification-banner {
-                flex-direction: column;
-                text-align: center;
-            }
+            .chat-messages { height: 350px; }
         }
     </style>
 </head>
-<body>
+<body class="light">
     <div id="loginBox" class="login-container">
         <h2>Вход</h2>
         <input type="text" id="loginName" placeholder="Ник"><br>
@@ -369,10 +300,9 @@
 
     <div id="regBox" class="login-container hidden">
         <h2>Регистрация</h2>
-        <input type="text" id="regName" placeholder="Придумайте ник"><br>
-        <input type="password" id="regPass" placeholder="Придумайте пароль"><br>
-        
-        <label>Выберите цвет ника:</label>
+        <input type="text" id="regName" placeholder="Ник"><br>
+        <input type="password" id="regPass" placeholder="Пароль"><br>
+        <label>Цвет ника:</label>
         <div id="colorPicker" style="margin: 10px 0;">
             <div class="color-option" style="background: #ff0000;" data-color="#ff0000"></div>
             <div class="color-option" style="background: #ff7f00;" data-color="#ff7f00"></div>
@@ -384,9 +314,8 @@
             <div class="color-option" style="background: #ff69b4;" data-color="#ff69b4"></div>
         </div>
         <input type="hidden" id="selectedColor" value="#ff0000">
-        
         <button onclick="register()">Зарегистрироваться</button>
-        <button onclick="showLogin()">Назад ко входу</button>
+        <button onclick="showLogin()">Назад</button>
         <p id="regError" class="error"></p>
         <p id="regSuccess" class="success"></p>
     </div>
@@ -394,48 +323,86 @@
     <div id="sitePage" class="hidden">
         <div class="site-header">
             <span>Добро пожаловать, <b id="userName"></b>!</span>
-            <button onclick="confirmLogout()">Выйти</button>
-        </div>
-        
-        <div id="notificationBanner" class="notification-banner hidden">
-            <span>🔔 Получать уведомления о новых сообщениях?</span>
-            <div>
-                <button id="enableNotificationsBtn">Да, включить</button>
-                <button id="laterNotificationsBtn" class="later">Нет</button>
+            <div style="display: flex; gap: 10px;">
+                <button class="theme-toggle" onclick="toggleTheme()">🌓 Тема</button>
+                <button onclick="confirmLogout()">Выйти</button>
             </div>
         </div>
         
-        <div class="main-content">
+        <div class="tab-bar">
+            <button class="tab-btn active" onclick="switchTab('public')">💬 Общий чат</button>
+            <button class="tab-btn" onclick="switchTab('private')">🔒 Личный чат <span id="privateUnread" style="display:none;" class="unread-badge">!</span></button>
+        </div>
+        
+        <div id="notificationBanner" class="notification-banner hidden">
+            <span>🔔 Получать уведомления?</span>
+            <div>
+                <button id="enableNotificationsBtn">Да</button>
+                <button id="laterNotificationsBtn">Нет</button>
+            </div>
+        </div>
+        
+        <div id="publicTab" class="main-content">
             <div class="user-list-panel">
-                <h4>✅ Пользователи <span id="onlineCount" style="font-size:12px; color:#00cc44;"></span></h4>
+                <h4>✅ Пользователи <span id="onlineCount"></span></h4>
                 <ul id="userList"></ul>
             </div>
             
             <div class="chat-container">
-                <div class="chat-messages" id="chatMessages">Загрузка...</div>
+                <div class="chat-messages" id="publicMessages">Загрузка...</div>
                 <div class="chat-input-area">
                     <div class="emoji-picker">
-                        <button type="button" class="emoji-btn" onclick="addEmoji('😀')">😀</button>
-                        <button type="button" class="emoji-btn" onclick="addEmoji('😂')">😂</button>
-                        <button type="button" class="emoji-btn" onclick="addEmoji('❤️')">❤️</button>
-                        <button type="button" class="emoji-btn" onclick="addEmoji('🔥')">🔥</button>
-                        <button type="button" class="emoji-btn" onclick="addEmoji('👍')">👍</button>
-                        <button type="button" class="emoji-btn" onclick="addEmoji('🎉')">🎉</button>
+                        <button class="emoji-btn" onclick="addEmoji('public', '😀')">😀</button>
+                        <button class="emoji-btn" onclick="addEmoji('public', '😂')">😂</button>
+                        <button class="emoji-btn" onclick="addEmoji('public', '❤️')">❤️</button>
+                        <button class="emoji-btn" onclick="addEmoji('public', '🔥')">🔥</button>
+                        <button class="emoji-btn" onclick="addEmoji('public', '👍')">👍</button>
+                        <button class="emoji-btn" onclick="addEmoji('public', '🎉')">🎉</button>
                     </div>
                     <div style="display: flex; gap: 8px; width: 100%; flex-wrap: wrap;">
-                        <input type="text" id="chatInput" placeholder="Сообщение..." style="flex: 2;" onkeypress="if(event.key==='Enter') sendMessage()">
-                        <input type="file" id="imageUpload" accept="image/*" style="display: none;" onchange="handleImageUpload()">
-                        <button type="button" class="image-upload-btn" onclick="document.getElementById('imageUpload').click()">📷</button>
-                        <button onclick="sendMessage()">Отправить</button>
+                        <input type="text" id="publicInput" placeholder="Сообщение..." onkeypress="if(event.key==='Enter') sendPublicMessage()">
+                        <input type="file" id="publicImageUpload" accept="image/*" style="display:none;" onchange="handleImageUpload('public', this)">
+                        <button class="image-upload-btn" onclick="document.getElementById('publicImageUpload').click()">📷</button>
+                        <button onclick="sendPublicMessage()">Отправить</button>
                     </div>
-                    <div id="imagePreview" class="image-preview"></div>
                 </div>
             </div>
             
             <div id="adminPanel" class="admin-panel hidden">
                 <h4>👑 Админ-панель</h4>
-                <button onclick="clearChat()">🗑️ Очистить весь чат</button>
+                <button onclick="clearChat()">🗑️ Очистить чат</button>
                 <div id="pendingList">Загрузка...</div>
+            </div>
+        </div>
+        
+        <div id="privateTab" class="main-content hidden">
+            <div class="user-list-panel">
+                <h4>👤 Выберите собеседника</h4>
+                <ul id="privateUserList"></ul>
+            </div>
+            
+            <div class="chat-container">
+                <div id="privateChatHeader" style="padding: 10px; border-bottom: 1px solid var(--border);">
+                    <span id="selectedUserName">Никто не выбран</span>
+                    <span id="selectedUserActive" style="font-size: 12px; margin-left: 10px;"></span>
+                </div>
+                <div class="chat-messages" id="privateMessages">Выберите собеседника</div>
+                <div class="chat-input-area">
+                    <div class="emoji-picker">
+                        <button class="emoji-btn" onclick="addEmoji('private', '😀')">😀</button>
+                        <button class="emoji-btn" onclick="addEmoji('private', '😂')">😂</button>
+                        <button class="emoji-btn" onclick="addEmoji('private', '❤️')">❤️</button>
+                        <button class="emoji-btn" onclick="addEmoji('private', '🔥')">🔥</button>
+                        <button class="emoji-btn" onclick="addEmoji('private', '👍')">👍</button>
+                        <button class="emoji-btn" onclick="addEmoji('private', '🎉')">🎉</button>
+                    </div>
+                    <div style="display: flex; gap: 8px; width: 100%; flex-wrap: wrap;">
+                        <input type="text" id="privateInput" placeholder="Сообщение..." onkeypress="if(event.key==='Enter') sendPrivateMessage()">
+                        <input type="file" id="privateImageUpload" accept="image/*" style="display:none;" onchange="handleImageUpload('private', this)">
+                        <button class="image-upload-btn" onclick="document.getElementById('privateImageUpload').click()">📷</button>
+                        <button onclick="sendPrivateMessage()">Отправить</button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -443,14 +410,26 @@
     <script>
         let currentUser = null;
         let currentUserColor = '#0066cc';
+        let currentTheme = 'light';
+        let activeTab = 'public';
+        let selectedPrivateUser = null;
         let updateInterval = null;
-        let lastMessageCount = 0;
-        let notificationPermission = false;
+        let privateUpdateInterval = null;
         let activeUpdateInterval = null;
-        let wasAtBottom = true;
+        let notificationPermission = false;
+        let unreadCount = 0;
         
         const STORAGE_USER_KEY = 'chat_current_user';
         const NOTIFICATION_ASKED_KEY = 'chat_notification_asked';
+        
+        function toggleTheme() {
+            currentTheme = currentTheme === 'light' ? 'dark' : 'light';
+            document.body.className = currentTheme;
+            localStorage.setItem('chat_theme', currentTheme);
+            if (currentUser) {
+                fetch('/api/update_theme', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: currentUser, theme: currentTheme }) });
+            }
+        }
         
         function compressImage(file, maxSizeKB = 500) {
             return new Promise((resolve, reject) => {
@@ -460,23 +439,13 @@
                     const img = new Image();
                     img.src = e.target.result;
                     img.onload = () => {
-                        let width = img.width;
-                        let height = img.height;
-                        let quality = 0.9;
+                        let width = img.width, height = img.height, quality = 0.9;
                         const canvas = document.createElement('canvas');
-                        let ctx = canvas.getContext('2d');
-                        const maxWidth = 1200;
-                        const maxHeight = 1200;
-                        if (width > maxWidth) {
-                            height = (height * maxWidth) / width;
-                            width = maxWidth;
-                        }
-                        if (height > maxHeight) {
-                            width = (width * maxHeight) / height;
-                            height = maxHeight;
-                        }
-                        canvas.width = width;
-                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        const maxWidth = 1200, maxHeight = 1200;
+                        if (width > maxWidth) { height = (height * maxWidth) / width; width = maxWidth; }
+                        if (height > maxHeight) { width = (width * maxHeight) / height; height = maxHeight; }
+                        canvas.width = width; canvas.height = height;
                         ctx.drawImage(img, 0, 0, width, height);
                         let compressed = canvas.toDataURL('image/jpeg', quality);
                         while (compressed.length > maxSizeKB * 1024 && quality > 0.3) {
@@ -491,333 +460,326 @@
             });
         }
         
-        async function handleImageUpload() {
-            let fileInput = document.getElementById('imageUpload');
+        async function handleImageUpload(chatType, fileInput) {
             let file = fileInput.files[0];
             if (!file) return;
-            if (!file.type.startsWith('image/')) {
-                alert('Пожалуйста, выберите изображение');
-                return;
-            }
-            let preview = document.getElementById('imagePreview');
-            let reader = new FileReader();
-            reader.onload = function(e) {
-                preview.innerHTML = `<img src="${e.target.result}" alt="preview"><br><small>Сжатие...</small>`;
-                preview.style.display = 'block';
-            };
-            reader.readAsDataURL(file);
+            if (!file.type.startsWith('image/')) { alert('Выберите изображение'); return; }
             try {
                 let compressed = await compressImage(file, 500);
-                preview.innerHTML = `<img src="${compressed}" alt="preview"><br><small>Нажмите "Отправить"</small>`;
-                let chatInput = document.getElementById('chatInput');
-                chatInput.value = compressed;
-            } catch(e) {
-                alert('Ошибка при обработке изображения');
-                preview.style.display = 'none';
-            }
+                let input = document.getElementById(chatType === 'public' ? 'publicInput' : 'privateInput');
+                input.value = compressed;
+            } catch(e) { alert('Ошибка'); }
             fileInput.value = '';
         }
         
-        function savePhoto(imageSrc) {
-            const link = document.createElement('a');
-            link.href = imageSrc;
-            link.download = `chat_photo_${Date.now()}.jpg`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        }
+        function savePhoto(src) { const a = document.createElement('a'); a.href = src; a.download = `photo_${Date.now()}.jpg`; a.click(); }
         
-        function isNotificationSupported() {
-            return 'Notification' in window;
-        }
+        function isNotificationSupported() { return 'Notification' in window; }
         
         function requestNotificationPermission() {
             if (!isNotificationSupported()) return;
             if (Notification.permission === 'denied') {
-                alert('🔔 Уведомления заблокированы. Чтобы включить:\n\n1. Нажмите на значок 🔒 слева от адресной строки\n2. Найдите "Уведомления" → выберите "Разрешить"\n3. Обновите страницу');
+                alert('Уведомления заблокированы. Нажмите 🔒 → Уведомления → Разрешить');
                 return;
             }
             Notification.requestPermission().then(perm => {
                 notificationPermission = (perm === 'granted');
-                if (notificationPermission) {
-                    document.getElementById('notificationBanner').classList.add('hidden');
-                    localStorage.setItem(NOTIFICATION_ASKED_KEY, 'true');
-                }
+                if (notificationPermission) document.getElementById('notificationBanner').classList.add('hidden');
             });
         }
         
         function showNotificationBanner() {
-            if (!isNotificationSupported()) return;
-            if (notificationPermission) return;
-            if (localStorage.getItem(NOTIFICATION_ASKED_KEY) === 'true') return;
+            if (!isNotificationSupported() || notificationPermission || localStorage.getItem(NOTIFICATION_ASKED_KEY) === 'true') return;
             document.getElementById('notificationBanner').classList.remove('hidden');
-        }
-        
-        function hideNotificationBanner(remember = true) {
-            document.getElementById('notificationBanner').classList.add('hidden');
-            if (remember) localStorage.setItem(NOTIFICATION_ASKED_KEY, 'true');
         }
         
         function sendNotification(title, body) {
             if (notificationPermission && document.hidden) {
-                try {
-                    new Notification(title, { body: body, icon: 'https://cdn-icons-png.flaticon.com/512/4712/4712109.png', silent: false });
-                } catch(e) {}
+                try { new Notification(title, { body: body, icon: 'https://cdn-icons-png.flaticon.com/512/4712/4712109.png' }); } catch(e) {}
             }
         }
         
         async function apiCall(url, method = 'GET', body = null) {
-            let options = { method: method, headers: { 'Content-Type': 'application/json' } };
+            let options = { method, headers: { 'Content-Type': 'application/json' } };
             if (body) options.body = JSON.stringify(body);
             let response = await fetch(url, options);
             return await response.json();
         }
         
-        function addEmoji(emoji) {
-            let input = document.getElementById('chatInput');
+        function addEmoji(chatType, emoji) {
+            let input = document.getElementById(chatType === 'public' ? 'publicInput' : 'privateInput');
             input.value += emoji;
             input.focus();
         }
         
         async function updateActiveStatus() {
-            if (currentUser) {
-                await fetch('/api/active', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: currentUser }) });
-            }
+            if (currentUser) await fetch('/api/active', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: currentUser }) });
         }
         
-        function checkIfAtBottom() {
-            const container = document.getElementById('chatMessages');
-            if (!container) return true;
-            return container.scrollHeight - container.scrollTop - container.clientHeight < 100;
+        function formatMessage(text) {
+            if (text && text.startsWith('data:image')) return `<img src="${text}" style="max-width:100%; max-height:300px; border-radius:12px; cursor:pointer;" onclick="savePhoto('${text}')">`;
+            let formatted = escapeHtml(text);
+            let imgRegex = /(https?:\/\/[^\s]+\.(jpg|jpeg|png|gif|webp))/gi;
+            formatted = formatted.replace(imgRegex, match => `<img src="${match}" style="max-width:100%; max-height:300px; border-radius:12px; cursor:pointer;" onclick="savePhoto('${match}')">`);
+            let urlRegex = /(https?:\/\/[^\s]+)/gi;
+            formatted = formatted.replace(urlRegex, match => match.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? match : `<a href="${match}" target="_blank">${match}</a>`);
+            return formatted;
         }
+        
+        function escapeHtml(text) { let div = document.createElement('div'); div.textContent = text; return div.innerHTML; }
         
         async function loadUsers() {
             try {
-                let response = await fetch('/api/users');
-                let users = await response.json();
-                let userList = document.getElementById('userList');
-                userList.innerHTML = '';
-                let onlineCount = 0;
-                for (let user of users) {
-                    let color = user.color || '#0066cc';
-                    let online = user.online || false;
-                    if (online) onlineCount++;
-                    let li = document.createElement('li');
-                    li.innerHTML = `<span><span class="online-indicator ${online ? 'online' : 'offline'}"></span><span style="color: ${color};">${escapeHtml(user.username)}</span></span>`;
-                    if (currentUser === 'admin' && user.username !== 'admin') {
-                        let delBtn = document.createElement('button');
-                        delBtn.textContent = '❌';
-                        delBtn.className = 'delete-user-btn';
-                        delBtn.onclick = () => deleteUser(user.username);
-                        li.appendChild(delBtn);
+                let users = await apiCall('/api/users');
+                let container = document.getElementById('userList');
+                let privateContainer = document.getElementById('privateUserList');
+                if (container) {
+                    container.innerHTML = '';
+                    let onlineCount = 0;
+                    for (let u of users) {
+                        if (u.username === currentUser) continue;
+                        if (u.online) onlineCount++;
+                        let li = document.createElement('li');
+                        li.innerHTML = `<span><span class="online-indicator ${u.online ? 'online' : 'offline'}"></span><span style="color:${u.color}">${escapeHtml(u.username)}</span>${u.last_active ? `<span style="font-size:10px; margin-left:8px;">${formatLastActive(u.last_active)}</span>` : ''}</span>`;
+                        if (currentUser === 'admin') {
+                            let btn = document.createElement('button');
+                            btn.textContent = '❌';
+                            btn.className = 'delete-user-btn';
+                            btn.onclick = () => deleteUser(u.username);
+                            li.appendChild(btn);
+                        }
+                        container.appendChild(li);
                     }
-                    userList.appendChild(li);
+                    document.getElementById('onlineCount').innerHTML = `🟢 ${onlineCount} онлайн`;
                 }
-                let onlineSpan = document.getElementById('onlineCount');
-                if (onlineSpan) onlineSpan.innerHTML = `🟢 ${onlineCount} онлайн`;
+                if (privateContainer) {
+                    privateContainer.innerHTML = '';
+                    for (let u of users) {
+                        if (u.username === currentUser) continue;
+                        let li = document.createElement('li');
+                        li.innerHTML = `<span><span class="online-indicator ${u.online ? 'online' : 'offline'}"></span><span style="color:${u.color}">${escapeHtml(u.username)}</span><span style="font-size:10px; margin-left:8px;">${formatLastActive(u.last_active)}</span></span>`;
+                        li.onclick = () => selectPrivateUser(u.username);
+                        privateContainer.appendChild(li);
+                    }
+                }
             } catch(e) { console.error(e); }
         }
         
+        function formatLastActive(timestamp) {
+            if (!timestamp || timestamp === 0) return 'никогда';
+            let diff = Date.now() - timestamp;
+            let minutes = Math.floor(diff / 60000);
+            if (minutes < 1) return 'только что';
+            if (minutes < 60) return `${minutes} мин назад`;
+            let hours = Math.floor(minutes / 60);
+            if (hours < 24) return `${hours} ч назад`;
+            let days = Math.floor(hours / 24);
+            return `${days} д назад`;
+        }
+        
         async function deleteUser(username) {
-            if (confirm(`Удалить пользователя ${username}?`)) {
-                await apiCall('/api/delete_user', 'POST', { username: username });
+            if (confirm(`Удалить ${username}?`)) {
+                await apiCall('/api/delete_user', 'POST', { username });
                 loadUsers();
-                loadMessages();
+                loadPublicMessages();
             }
         }
         
-        async function deleteMessage(messageId) {
-            if (confirm('Удалить сообщение?')) {
-                await apiCall('/api/delete_message', 'POST', { message_id: messageId });
-                loadMessages();
+        async function loadPublicMessages() {
+            let messages = await apiCall('/api/messages');
+            let container = document.getElementById('publicMessages');
+            if (!container) return;
+            if (messages.length === 0) { container.innerHTML = '<div class="chat-message">Нет сообщений</div>'; return; }
+            container.innerHTML = '';
+            for (let msg of messages) {
+                let div = document.createElement('div');
+                div.className = 'chat-message';
+                div.innerHTML = `<strong style="color:${msg.author_color || '#0066cc'}">${escapeHtml(msg.author)}</strong><span class="time">${msg.time}</span><br>${formatMessage(msg.text)}`;
+                if (msg.author === currentUser || currentUser === 'admin') {
+                    let actions = document.createElement('div');
+                    actions.className = 'message-actions';
+                    let delBtn = document.createElement('button');
+                    delBtn.textContent = '🗑️';
+                    delBtn.className = 'delete-msg-btn';
+                    delBtn.onclick = () => deleteMessage(msg.id);
+                    actions.appendChild(delBtn);
+                    div.appendChild(actions);
+                }
+                container.appendChild(div);
             }
+            container.scrollTop = container.scrollHeight;
+        }
+        
+        async function sendPublicMessage() {
+            let input = document.getElementById('publicInput');
+            let text = input.value.trim();
+            if (!text) return;
+            let now = new Date();
+            let timeStr = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}:${now.getSeconds().toString().padStart(2,'0')}`;
+            let tempId = 'temp_' + Date.now();
+            let container = document.getElementById('publicMessages');
+            let tempDiv = document.createElement('div');
+            tempDiv.className = 'chat-message sending';
+            tempDiv.id = tempId;
+            tempDiv.innerHTML = `<strong style="color:${currentUserColor}">${escapeHtml(currentUser)}</strong><span class="time">${timeStr}</span><br>${formatMessage(text)}<div class="message-actions"><small>⏳ отправляется...</small></div>`;
+            container.appendChild(tempDiv);
+            container.scrollTop = container.scrollHeight;
+            input.value = '';
+            try {
+                await apiCall('/api/send_message', 'POST', { author: currentUser, text: text, time: timeStr, timestamp: Date.now() });
+                document.getElementById(tempId)?.remove();
+                loadPublicMessages();
+            } catch(e) { document.getElementById(tempId)?.remove(); alert('Ошибка'); }
+        }
+        
+        async function deleteMessage(id) {
+            if (confirm('Удалить?')) { await apiCall('/api/delete_message', 'POST', { message_id: id }); loadPublicMessages(); }
         }
         
         async function clearChat() {
-            if (confirm('Очистить весь чат?')) {
-                await apiCall('/api/clear_chat', 'POST');
-                loadMessages();
-            }
+            if (confirm('Очистить чат?')) { await apiCall('/api/clear_chat', 'POST'); loadPublicMessages(); }
         }
         
         async function loadPending() {
             if (currentUser !== 'admin') return;
-            try {
-                let pending = await apiCall('/api/pending');
-                let container = document.getElementById('pendingList');
-                if (pending.length === 0) {
-                    container.innerHTML = '<p>Нет заявок</p>';
-                    return;
-                }
-                container.innerHTML = '';
-                for (let name of pending) {
-                    let div = document.createElement('div');
-                    div.className = 'pending-user';
-                    div.innerHTML = '<strong>' + escapeHtml(name) + '</strong><br><button onclick="approveUser(\'' + name + '\')">✅ Одобрить</button> <button onclick="rejectUser(\'' + name + '\')">❌ Отклонить</button>';
-                    container.appendChild(div);
-                }
-            } catch(e) { console.error(e); }
-        }
-        
-        async function approveUser(name) {
-            await apiCall('/api/approve', 'POST', { username: name });
-            loadPending();
-            loadUsers();
-        }
-        
-        async function rejectUser(name) {
-            await apiCall('/api/reject', 'POST', { username: name });
-            loadPending();
-        }
-        
-        function escapeHtml(text) {
-            let div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
-        
-        function formatMessage(text) {
-            if (text.startsWith('data:image')) {
-                return `<img src="${text}" alt="фото" style="max-width:100%; max-height:300px; border-radius:12px; cursor:pointer;" onclick="savePhoto('${text}')">`;
+            let pending = await apiCall('/api/pending');
+            let container = document.getElementById('pendingList');
+            if (!pending.length) { container.innerHTML = '<p>Нет заявок</p>'; return; }
+            container.innerHTML = '';
+            for (let name of pending) {
+                let div = document.createElement('div');
+                div.className = 'pending-user';
+                div.innerHTML = `<strong>${escapeHtml(name)}</strong><br><button onclick="approveUser('${name}')">✅ Одобрить</button> <button onclick="rejectUser('${name}')">❌ Отклонить</button>`;
+                container.appendChild(div);
             }
-            let formatted = escapeHtml(text);
-            let imageRegex = /(https?:\/\/[^\s]+\.(jpg|jpeg|png|gif|webp))/gi;
-            formatted = formatted.replace(imageRegex, (match) => {
-                return `<img src="${match}" alt="картинка" style="max-width:100%; max-height:300px; border-radius:12px; cursor:pointer;" onclick="savePhoto('${match}')">`;
-            });
-            let urlRegex = /(https?:\/\/[^\s]+)/gi;
-            formatted = formatted.replace(urlRegex, (match) => {
-                if (match.match(/\.(jpg|jpeg|png|gif|webp)$/i)) return match;
-                if (match.startsWith('data:image')) return match;
-                return `<a href="${match}" target="_blank">${match}</a>`;
-            });
-            return formatted;
         }
         
-        async function loadMessages() {
-            try {
-                let messages = await apiCall('/api/messages');
-                let container = document.getElementById('chatMessages');
-                if (!container) return;
-                
-                let needScroll = checkIfAtBottom();
-                
-                if (messages.length === 0) {
-                    container.innerHTML = '<div class="chat-message" style="text-align:center;">Нет сообщений</div>';
-                    lastMessageCount = 0;
-                    return;
-                }
-                
-                if (messages.length > lastMessageCount && lastMessageCount > 0 && currentUser) {
-                    let lastMsg = messages[messages.length - 1];
-                    if (lastMsg.author !== currentUser) {
-                        sendNotification('Новое сообщение от ' + lastMsg.author, lastMsg.text.substring(0, 100));
-                    }
-                }
-                lastMessageCount = messages.length;
-                
-                container.innerHTML = '';
-                for (let msg of messages) {
-                    let msgDiv = document.createElement('div');
-                    msgDiv.className = 'chat-message';
-                    let authorColor = msg.author_color || '#0066cc';
-                    msgDiv.innerHTML = '<strong style="color: ' + authorColor + ';">' + escapeHtml(msg.author) + '</strong><span class="time">' + msg.time + '</span><br>' + formatMessage(msg.text);
-                    if (msg.author === currentUser || currentUser === 'admin') {
-                        let actionsDiv = document.createElement('div');
-                        actionsDiv.className = 'message-actions';
-                        let delBtn = document.createElement('button');
-                        delBtn.textContent = '🗑️ Удалить';
-                        delBtn.className = 'delete-msg-btn';
-                        delBtn.onclick = () => deleteMessage(msg.id);
-                        actionsDiv.appendChild(delBtn);
-                        msgDiv.appendChild(actionsDiv);
-                    }
-                    container.appendChild(msgDiv);
-                }
-                if (needScroll) container.scrollTop = container.scrollHeight;
-                document.getElementById('imagePreview').style.display = 'none';
-                document.getElementById('imagePreview').innerHTML = '';
-            } catch(e) { console.error(e); }
+        async function approveUser(name) { await apiCall('/api/approve', 'POST', { username: name }); loadPending(); loadUsers(); }
+        async function rejectUser(name) { await apiCall('/api/reject', 'POST', { username: name }); loadPending(); }
+        
+        async function selectPrivateUser(username) {
+            selectedPrivateUser = username;
+            document.getElementById('selectedUserName').innerHTML = escapeHtml(username);
+            await loadPrivateMessages();
+            await fetch('/api/mark_read', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ from_user: username, to_user: currentUser }) });
+            checkUnreadCount();
+            let users = await apiCall('/api/users');
+            let user = users.find(u => u.username === username);
+            if (user) {
+                document.getElementById('selectedUserActive').innerHTML = user.online ? '🟢 онлайн' : (user.last_active ? `📅 ${formatLastActive(user.last_active)}` : '');
+            }
         }
         
-        async function sendMessage() {
-            let input = document.getElementById('chatInput');
+        async function loadPrivateMessages() {
+            if (!selectedPrivateUser) return;
+            let messages = await apiCall('/api/private_messages', 'POST', { user1: currentUser, user2: selectedPrivateUser });
+            let container = document.getElementById('privateMessages');
+            if (!messages.length) { container.innerHTML = '<div class="chat-message">Нет сообщений</div>'; return; }
+            container.innerHTML = '';
+            for (let msg of messages) {
+                let div = document.createElement('div');
+                div.className = 'chat-message';
+                let isFromMe = msg.from_user === currentUser;
+                div.innerHTML = `<strong style="color:${msg.author_color || '#0066cc'}">${escapeHtml(isFromMe ? 'Вы' : msg.from_user)}</strong><span class="time">${msg.time}</span><br>${formatMessage(msg.text)}`;
+                container.appendChild(div);
+            }
+            container.scrollTop = container.scrollHeight;
+        }
+        
+        async function sendPrivateMessage() {
+            if (!selectedPrivateUser) { alert('Выберите собеседника'); return; }
+            let input = document.getElementById('privateInput');
             let text = input.value.trim();
             if (!text) return;
-            
             let now = new Date();
-            let timeStr = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0') + ':' + now.getSeconds().toString().padStart(2,'0');
-            
-            await apiCall('/api/send_message', 'POST', {
-                author: currentUser,
-                text: text,
-                time: timeStr,
-                timestamp: Date.now()
-            });
+            let timeStr = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}:${now.getSeconds().toString().padStart(2,'0')}`;
+            let tempId = 'temp_priv_' + Date.now();
+            let container = document.getElementById('privateMessages');
+            let tempDiv = document.createElement('div');
+            tempDiv.className = 'chat-message sending';
+            tempDiv.id = tempId;
+            tempDiv.innerHTML = `<strong style="color:${currentUserColor}">Вы</strong><span class="time">${timeStr}</span><br>${formatMessage(text)}<div class="message-actions"><small>⏳ отправляется...</small></div>`;
+            container.appendChild(tempDiv);
+            container.scrollTop = container.scrollHeight;
             input.value = '';
-            loadMessages();
+            try {
+                await apiCall('/api/send_private', 'POST', { from_user: currentUser, to_user: selectedPrivateUser, text: text, time: timeStr, timestamp: Date.now() });
+                document.getElementById(tempId)?.remove();
+                loadPrivateMessages();
+                if (!document.hidden) sendNotification(`Личное от ${currentUser}`, text.substring(0, 100));
+            } catch(e) { document.getElementById(tempId)?.remove(); alert('Ошибка'); }
+        }
+        
+        async function checkUnreadCount() {
+            let res = await apiCall('/api/unread_count', 'POST', { username: currentUser });
+            unreadCount = res.count;
+            let badge = document.getElementById('privateUnread');
+            if (unreadCount > 0 && activeTab !== 'private') {
+                badge.style.display = 'inline';
+                badge.textContent = unreadCount;
+            } else {
+                badge.style.display = 'none';
+            }
+        }
+        
+        function switchTab(tab) {
+            activeTab = tab;
+            document.getElementById('publicTab').classList.add('hidden');
+            document.getElementById('privateTab').classList.add('hidden');
+            document.getElementById(`${tab}Tab`).classList.remove('hidden');
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            if (tab === 'public') document.querySelector('.tab-btn:first-child').classList.add('active');
+            else document.querySelector('.tab-btn:last-child').classList.add('active');
+            if (tab === 'private') {
+                loadPrivateMessages();
+                checkUnreadCount();
+                document.getElementById('privateUnread').style.display = 'none';
+            }
         }
         
         async function register() {
             let name = document.getElementById('regName').value.trim();
             let pass = document.getElementById('regPass').value.trim();
             let color = document.getElementById('selectedColor').value;
-            let regError = document.getElementById('regError');
-            let regSuccess = document.getElementById('regSuccess');
-            regError.innerText = '';
-            regSuccess.innerText = '';
-            if (!name || !pass) { regError.innerText = 'Заполните оба поля'; return; }
-            if (name === 'admin') { regError.innerText = 'Это имя зарезервировано'; return; }
-            let result = await apiCall('/api/register', 'POST', { username: name, password: pass, color: color });
-            if (result.success) {
-                regSuccess.innerText = 'Заявка отправлена! Ждите одобрения.';
-                document.getElementById('regName').value = '';
-                document.getElementById('regPass').value = '';
+            if (!name || !pass) { document.getElementById('regError').innerText = 'Заполните поля'; return; }
+            let res = await apiCall('/api/register', 'POST', { username: name, password: pass, color });
+            if (res.success) {
+                document.getElementById('regSuccess').innerText = 'Заявка отправлена!';
                 setTimeout(() => showLogin(), 2000);
-            } else {
-                regError.innerText = result.error;
-            }
+            } else document.getElementById('regError').innerText = res.error;
         }
         
         async function login() {
             let name = document.getElementById('loginName').value.trim();
             let pass = document.getElementById('loginPass').value.trim();
-            let loginError = document.getElementById('loginError');
-            loginError.innerText = '';
-            let result = await apiCall('/api/login', 'POST', { username: name, password: pass });
-            if (result.success) {
+            let res = await apiCall('/api/login', 'POST', { username: name, password: pass });
+            if (res.success) {
                 currentUser = name;
-                currentUserColor = result.color || '#0066cc';
+                currentUserColor = res.color || '#0066cc';
+                currentTheme = res.theme || 'light';
+                document.body.className = currentTheme;
+                localStorage.setItem('chat_theme', currentTheme);
                 localStorage.setItem(STORAGE_USER_KEY, name);
-                showSite(name);
+                showSite();
                 updateActiveStatus();
                 if (activeUpdateInterval) clearInterval(activeUpdateInterval);
                 activeUpdateInterval = setInterval(() => updateActiveStatus(), 15000);
-            } else {
-                loginError.innerText = result.error || 'Неверный логин или пароль';
-            }
+                setInterval(() => checkUnreadCount(), 5000);
+            } else document.getElementById('loginError').innerText = res.error;
         }
         
-        async function showSite(name) {
+        async function showSite() {
             document.getElementById('loginBox').classList.add('hidden');
             document.getElementById('regBox').classList.add('hidden');
             document.getElementById('sitePage').classList.remove('hidden');
-            document.getElementById('userName').innerHTML = `<span style="color: ${currentUserColor};">${escapeHtml(name)}</span>`;
+            document.getElementById('userName').innerHTML = `<span style="color:${currentUserColor}">${escapeHtml(currentUser)}</span>`;
             await loadUsers();
-            await loadMessages();
-            if (name === 'admin') {
-                document.getElementById('adminPanel').classList.remove('hidden');
-                await loadPending();
-            } else {
-                document.getElementById('adminPanel').classList.add('hidden');
-            }
+            await loadPublicMessages();
+            if (currentUser === 'admin') document.getElementById('adminPanel').classList.remove('hidden');
             if (updateInterval) clearInterval(updateInterval);
-            updateInterval = setInterval(() => {
-                wasAtBottom = checkIfAtBottom();
-                loadMessages();
-                loadUsers();
-                if (currentUser === 'admin') loadPending();
-            }, 2000);
+            updateInterval = setInterval(() => { loadPublicMessages(); loadUsers(); if (currentUser === 'admin') loadPending(); }, 2000);
+            if (privateUpdateInterval) clearInterval(privateUpdateInterval);
+            privateUpdateInterval = setInterval(() => { if (activeTab === 'private' && selectedPrivateUser) loadPrivateMessages(); checkUnreadCount(); }, 2000);
             setTimeout(() => showNotificationBanner(), 500);
         }
         
@@ -825,15 +787,10 @@
         
         function logout() {
             if (updateInterval) clearInterval(updateInterval);
+            if (privateUpdateInterval) clearInterval(privateUpdateInterval);
             if (activeUpdateInterval) clearInterval(activeUpdateInterval);
-            currentUser = null;
-            lastMessageCount = 0;
             localStorage.removeItem(STORAGE_USER_KEY);
-            document.getElementById('loginName').value = '';
-            document.getElementById('loginPass').value = '';
-            document.getElementById('loginError').innerText = '';
-            document.getElementById('loginBox').classList.remove('hidden');
-            document.getElementById('sitePage').classList.add('hidden');
+            location.reload();
         }
         
         function showReg() {
@@ -846,39 +803,37 @@
             document.getElementById('loginBox').classList.remove('hidden');
         }
         
-        async function checkAutoLogin() {
-            let savedUser = localStorage.getItem(STORAGE_USER_KEY);
-            if (savedUser) {
-                try {
-                    let users = await (await fetch('/api/users')).json();
-                    let userExists = users.some(u => u.username === savedUser);
-                    if (savedUser === 'admin' || userExists) {
-                        currentUser = savedUser;
-                        showSite(savedUser);
-                        updateActiveStatus();
-                        if (activeUpdateInterval) clearInterval(activeUpdateInterval);
-                        activeUpdateInterval = setInterval(() => updateActiveStatus(), 15000);
-                        return;
-                    }
-                } catch(e) {}
-                localStorage.removeItem(STORAGE_USER_KEY);
-            }
-        }
-        
-        document.addEventListener('visibilitychange', function() {
-            if (!document.hidden) { loadMessages(); updateActiveStatus(); }
+        document.querySelectorAll('.color-option').forEach(opt => {
+            opt.addEventListener('click', function() {
+                document.querySelectorAll('.color-option').forEach(o => o.classList.remove('selected'));
+                this.classList.add('selected');
+                document.getElementById('selectedColor').value = this.dataset.color;
+            });
         });
+        if (document.querySelector('.color-option')) document.querySelector('.color-option').classList.add('selected');
         
-        document.addEventListener('DOMContentLoaded', function() {
-            const enableBtn = document.getElementById('enableNotificationsBtn');
-            const laterBtn = document.getElementById('laterNotificationsBtn');
-            if (enableBtn) enableBtn.addEventListener('click', () => { requestNotificationPermission(); hideNotificationBanner(true); });
-            if (laterBtn) laterBtn.addEventListener('click', () => { hideNotificationBanner(true); });
-            const chatContainer = document.getElementById('chatMessages');
-            if (chatContainer) chatContainer.addEventListener('scroll', () => { wasAtBottom = checkIfAtBottom(); });
+        document.addEventListener('DOMContentLoaded', () => {
+            const savedTheme = localStorage.getItem('chat_theme');
+            if (savedTheme) { document.body.className = savedTheme; currentTheme = savedTheme; }
+            document.getElementById('enableNotificationsBtn')?.addEventListener('click', () => { requestNotificationPermission(); document.getElementById('notificationBanner').classList.add('hidden'); localStorage.setItem(NOTIFICATION_ASKED_KEY, 'true'); });
+            document.getElementById('laterNotificationsBtn')?.addEventListener('click', () => { document.getElementById('notificationBanner').classList.add('hidden'); localStorage.setItem(NOTIFICATION_ASKED_KEY, 'true'); });
         });
         
         checkAutoLogin();
+        async function checkAutoLogin() {
+            let saved = localStorage.getItem(STORAGE_USER_KEY);
+            if (saved) {
+                currentUser = saved;
+                let res = await apiCall('/api/users');
+                if (res.some(u => u.username === saved) || saved === 'admin') {
+                    await showSite();
+                    updateActiveStatus();
+                    if (activeUpdateInterval) clearInterval(activeUpdateInterval);
+                    activeUpdateInterval = setInterval(() => updateActiveStatus(), 15000);
+                    setInterval(() => checkUnreadCount(), 5000);
+                } else localStorage.removeItem(STORAGE_USER_KEY);
+            }
+        }
     </script>
 </body>
 </html>
