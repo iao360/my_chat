@@ -3,15 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>Быстрый чат</title>
+    <title>Общий чат</title>
     <style>
-        * { box-sizing: border-box; }
+        * {
+            box-sizing: border-box;
+        }
+        
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             margin: 0;
             padding: 0;
             background: #f5f5f5;
         }
+        
         .login-container {
             max-width: 400px;
             margin: 50px auto;
@@ -20,6 +24,7 @@
             border-radius: 16px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
+        
         input, select, button {
             margin: 10px 0;
             padding: 12px;
@@ -28,13 +33,20 @@
             border-radius: 12px;
             font-size: 16px;
         }
+        
         button {
             background: #0066cc;
             color: white;
             border: none;
             cursor: pointer;
             font-weight: 600;
+            transition: background 0.2s;
         }
+        
+        button:active {
+            background: #0052a3;
+        }
+        
         .color-option {
             display: inline-block;
             width: 40px;
@@ -44,10 +56,16 @@
             cursor: pointer;
             border: 2px solid transparent;
         }
-        .color-option.selected { border: 3px solid #333; transform: scale(1.1); }
+        
+        .color-option.selected {
+            border: 3px solid #333;
+            transform: scale(1.1);
+        }
+        
         .hidden { display: none; }
         .error { color: red; font-size: 14px; }
         .success { color: green; font-size: 14px; }
+        
         .site-header {
             background: white;
             padding: 12px 16px;
@@ -61,7 +79,13 @@
             flex-wrap: wrap;
             gap: 10px;
         }
-        .site-header button { width: auto; padding: 8px 16px; margin: 0; }
+        
+        .site-header button {
+            width: auto;
+            padding: 8px 16px;
+            margin: 0;
+        }
+        
         .notification-banner {
             background: #e8f0fe;
             padding: 10px 16px;
@@ -73,8 +97,19 @@
             flex-wrap: wrap;
             gap: 10px;
         }
-        .notification-banner button { width: auto; margin: 0; padding: 8px 16px; }
-        .main-content { display: flex; flex-direction: column; padding: 12px; }
+        
+        .notification-banner button {
+            width: auto;
+            margin: 0;
+            padding: 8px 16px;
+        }
+        
+        .main-content {
+            display: flex;
+            flex-direction: column;
+            padding: 12px;
+        }
+        
         .user-list-panel {
             background: white;
             border-radius: 16px;
@@ -82,9 +117,26 @@
             margin-bottom: 12px;
             border: 1px solid #e0e0e0;
         }
-        .user-list-panel h4 { margin: 0 0 8px 0; font-size: 14px; color: #666; }
-        .user-list-panel ul { margin: 0; padding-left: 20px; font-size: 14px; }
-        .user-list-panel li { display: flex; justify-content: space-between; align-items: center; margin: 5px 0; }
+        
+        .user-list-panel h4 {
+            margin: 0 0 8px 0;
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .user-list-panel ul {
+            margin: 0;
+            padding-left: 20px;
+            font-size: 14px;
+        }
+        
+        .user-list-panel li {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 5px 0;
+        }
+        
         .online-indicator {
             display: inline-block;
             width: 10px;
@@ -92,9 +144,24 @@
             border-radius: 10px;
             margin-right: 8px;
         }
-        .online-indicator.online { background: #00cc44; box-shadow: 0 0 5px #00cc44; }
-        .online-indicator.offline { background: #ccc; }
-        .delete-user-btn { background: #dc3545; padding: 4px 8px; font-size: 11px; width: auto; margin: 0; }
+        
+        .online-indicator.online {
+            background: #00cc44;
+            box-shadow: 0 0 5px #00cc44;
+        }
+        
+        .online-indicator.offline {
+            background: #ccc;
+        }
+        
+        .delete-user-btn {
+            background: #dc3545;
+            padding: 4px 8px;
+            font-size: 11px;
+            width: auto;
+            margin: 0;
+        }
+        
         .admin-panel {
             background: #fff8e7;
             border-radius: 16px;
@@ -102,8 +169,18 @@
             margin-bottom: 12px;
             border: 1px solid #ffe0a3;
         }
-        .admin-panel h4 { margin: 0 0 8px 0; color: #cc6600; }
-        .admin-panel button { width: auto; padding: 8px 16px; margin: 5px 5px 0 0; }
+        
+        .admin-panel h4 {
+            margin: 0 0 8px 0;
+            color: #cc6600;
+        }
+        
+        .admin-panel button {
+            width: auto;
+            padding: 8px 16px;
+            margin: 5px 5px 0 0;
+        }
+        
         .pending-user {
             background: white;
             margin: 8px 0;
@@ -111,7 +188,14 @@
             border-radius: 12px;
             font-size: 14px;
         }
-        .pending-user button { width: auto; padding: 6px 12px; margin: 5px 5px 0 0; font-size: 13px; }
+        
+        .pending-user button {
+            width: auto;
+            padding: 6px 12px;
+            margin: 5px 5px 0 0;
+            font-size: 13px;
+        }
+        
         .chat-container {
             background: white;
             border-radius: 16px;
@@ -120,12 +204,14 @@
             display: flex;
             flex-direction: column;
         }
+        
         .chat-messages {
             height: 400px;
             overflow-y: auto;
             padding: 12px;
             background: #fafafa;
         }
+        
         .chat-message {
             margin: 8px 0;
             padding: 10px 12px;
@@ -136,8 +222,17 @@
             max-width: 100%;
             position: relative;
         }
-        .chat-message strong { font-size: 14px; }
-        .chat-message .time { font-size: 10px; color: #999; margin-left: 8px; }
+        
+        .chat-message strong {
+            font-size: 14px;
+        }
+        
+        .chat-message .time {
+            font-size: 10px;
+            color: #999;
+            margin-left: 8px;
+        }
+        
         .chat-message img {
             max-width: 100%;
             max-height: 300px;
@@ -146,10 +241,28 @@
             display: block;
             cursor: pointer;
         }
-        .message-actions { margin-top: 8px; text-align: right; }
-        .delete-msg-btn { background: #dc3545; padding: 4px 8px; font-size: 11px; width: auto; margin: 0; }
-        .emoji-picker, .sticker-picker { display: inline-flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
-        .emoji-btn, .sticker-btn {
+        
+        .message-actions {
+            margin-top: 8px;
+            text-align: right;
+        }
+        
+        .delete-msg-btn {
+            background: #dc3545;
+            padding: 4px 8px;
+            font-size: 11px;
+            width: auto;
+            margin: 0;
+        }
+        
+        .emoji-picker {
+            display: inline-flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 8px;
+        }
+        
+        .emoji-btn {
             width: 40px;
             height: 40px;
             padding: 0;
@@ -162,7 +275,7 @@
             align-items: center;
             justify-content: center;
         }
-        .sticker-btn { font-size: 28px; background: #fff0e0; }
+        
         .chat-input-area {
             display: flex;
             padding: 12px;
@@ -171,22 +284,76 @@
             border-top: 1px solid #e0e0e0;
             flex-wrap: wrap;
         }
-        .chat-input-area input { flex: 1; margin: 0; font-size: 16px; min-width: 150px; }
-        .chat-input-area button { width: auto; margin: 0; padding: 12px 20px; }
-        .image-upload-btn { background: #28a745; }
-        .sticker-toggle-btn { background: #ff9800; }
-        .image-preview { display: none; margin-top: 8px; padding: 8px; background: #f0f0f0; border-radius: 12px; text-align: center; }
-        .image-preview img { max-width: 100%; max-height: 150px; border-radius: 8px; }
-        @media (min-width: 768px) {
-            .main-content { flex-direction: row; gap: 20px; align-items: flex-start; }
-            .user-list-panel { width: 280px; position: sticky; top: 70px; }
-            .chat-container { flex: 1; }
-            .admin-panel { width: 300px; position: sticky; top: 70px; }
+        
+        .chat-input-area input {
+            flex: 1;
+            margin: 0;
+            font-size: 16px;
+            min-width: 150px;
         }
+        
+        .chat-input-area button {
+            width: auto;
+            margin: 0;
+            padding: 12px 20px;
+        }
+        
+        .image-upload-btn {
+            background: #28a745;
+        }
+        
+        .image-preview {
+            display: none;
+            margin-top: 8px;
+            padding: 8px;
+            background: #f0f0f0;
+            border-radius: 12px;
+            text-align: center;
+        }
+        
+        .image-preview img {
+            max-width: 100%;
+            max-height: 150px;
+            border-radius: 8px;
+        }
+        
+        @media (min-width: 768px) {
+            .main-content {
+                flex-direction: row;
+                gap: 20px;
+                align-items: flex-start;
+            }
+            
+            .user-list-panel {
+                width: 280px;
+                position: sticky;
+                top: 70px;
+            }
+            
+            .chat-container {
+                flex: 1;
+            }
+            
+            .admin-panel {
+                width: 300px;
+                position: sticky;
+                top: 70px;
+            }
+        }
+        
         @media (max-width: 767px) {
-            .site-header span { font-size: 14px; }
-            .chat-messages { height: 350px; }
-            .notification-banner { flex-direction: column; text-align: center; }
+            .site-header span {
+                font-size: 14px;
+            }
+            
+            .chat-messages {
+                height: 350px;
+            }
+            
+            .notification-banner {
+                flex-direction: column;
+                text-align: center;
+            }
         }
     </style>
 </head>
@@ -204,6 +371,7 @@
         <h2>Регистрация</h2>
         <input type="text" id="regName" placeholder="Придумайте ник"><br>
         <input type="password" id="regPass" placeholder="Придумайте пароль"><br>
+        
         <label>Выберите цвет ника:</label>
         <div id="colorPicker" style="margin: 10px 0;">
             <div class="color-option" style="background: #ff0000;" data-color="#ff0000"></div>
@@ -216,6 +384,7 @@
             <div class="color-option" style="background: #ff69b4;" data-color="#ff69b4"></div>
         </div>
         <input type="hidden" id="selectedColor" value="#ff0000">
+        
         <button onclick="register()">Зарегистрироваться</button>
         <button onclick="showLogin()">Назад ко входу</button>
         <p id="regError" class="error"></p>
@@ -253,23 +422,10 @@
                         <button type="button" class="emoji-btn" onclick="addEmoji('👍')">👍</button>
                         <button type="button" class="emoji-btn" onclick="addEmoji('🎉')">🎉</button>
                     </div>
-                    <div class="sticker-picker" id="stickerPicker" style="display: none;">
-                        <button type="button" class="sticker-btn" onclick="sendSticker('🐱')">🐱</button>
-                        <button type="button" class="sticker-btn" onclick="sendSticker('🐶')">🐶</button>
-                        <button type="button" class="sticker-btn" onclick="sendSticker('🐼')">🐼</button>
-                        <button type="button" class="sticker-btn" onclick="sendSticker('🦊')">🦊</button>
-                        <button type="button" class="sticker-btn" onclick="sendSticker('🐸')">🐸</button>
-                        <button type="button" class="sticker-btn" onclick="sendSticker('🐧')">🐧</button>
-                        <button type="button" class="sticker-btn" onclick="sendSticker('🦄')">🦄</button>
-                        <button type="button" class="sticker-btn" onclick="sendSticker('🍕')">🍕</button>
-                        <button type="button" class="sticker-btn" onclick="sendSticker('🎂')">🎂</button>
-                        <button type="button" class="sticker-btn" onclick="sendSticker('🎈')">🎈</button>
-                    </div>
                     <div style="display: flex; gap: 8px; width: 100%; flex-wrap: wrap;">
                         <input type="text" id="chatInput" placeholder="Сообщение..." style="flex: 2;" onkeypress="if(event.key==='Enter') sendMessage()">
                         <input type="file" id="imageUpload" accept="image/*" style="display: none;" onchange="handleImageUpload()">
                         <button type="button" class="image-upload-btn" onclick="document.getElementById('imageUpload').click()">📷</button>
-                        <button type="button" class="sticker-toggle-btn" onclick="toggleStickers()">😺</button>
                         <button onclick="sendMessage()">Отправить</button>
                     </div>
                     <div id="imagePreview" class="image-preview"></div>
@@ -288,10 +444,10 @@
         let currentUser = null;
         let currentUserColor = '#0066cc';
         let updateInterval = null;
+        let lastMessageCount = 0;
         let notificationPermission = false;
         let activeUpdateInterval = null;
         let wasAtBottom = true;
-        let pendingMessage = false;
         
         const STORAGE_USER_KEY = 'chat_current_user';
         const NOTIFICATION_ASKED_KEY = 'chat_notification_asked';
@@ -369,16 +525,6 @@
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
-        }
-        
-        function toggleStickers() {
-            let picker = document.getElementById('stickerPicker');
-            picker.style.display = picker.style.display === 'none' ? 'flex' : 'none';
-        }
-        
-        function sendSticker(sticker) {
-            sendMessageText(sticker);
-            document.getElementById('stickerPicker').style.display = 'none';
         }
         
         function isNotificationSupported() {
@@ -548,25 +694,27 @@
             return formatted;
         }
         
-        let lastMessageId = 0;
-        
         async function loadMessages() {
             try {
-                let response = await fetch('/api/messages');
-                let messages = await response.json();
+                let messages = await apiCall('/api/messages');
                 let container = document.getElementById('chatMessages');
                 if (!container) return;
                 
                 let needScroll = checkIfAtBottom();
-                let newLastId = messages.length > 0 ? messages[messages.length-1].id : 0;
                 
-                if (newLastId !== lastMessageId && lastMessageId !== 0 && currentUser) {
-                    let lastMsg = messages[messages.length-1];
-                    if (lastMsg && lastMsg.author !== currentUser) {
+                if (messages.length === 0) {
+                    container.innerHTML = '<div class="chat-message" style="text-align:center;">Нет сообщений</div>';
+                    lastMessageCount = 0;
+                    return;
+                }
+                
+                if (messages.length > lastMessageCount && lastMessageCount > 0 && currentUser) {
+                    let lastMsg = messages[messages.length - 1];
+                    if (lastMsg.author !== currentUser) {
                         sendNotification('Новое сообщение от ' + lastMsg.author, lastMsg.text.substring(0, 100));
                     }
                 }
-                lastMessageId = newLastId;
+                lastMessageCount = messages.length;
                 
                 container.innerHTML = '';
                 for (let msg of messages) {
@@ -592,42 +740,22 @@
             } catch(e) { console.error(e); }
         }
         
-        async function sendMessageText(text) {
-            if (!text) return;
-            let now = new Date();
-            let timeStr = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0') + ':' + now.getSeconds().toString().padStart(2,'0');
-            
-            let wasBottom = checkIfAtBottom();
-            let tempId = Date.now();
-            let container = document.getElementById('chatMessages');
-            let tempDiv = document.createElement('div');
-            tempDiv.className = 'chat-message';
-            tempDiv.style.opacity = '0.5';
-            tempDiv.id = 'temp_' + tempId;
-            tempDiv.innerHTML = '<strong style="color: ' + currentUserColor + ';">' + escapeHtml(currentUser) + '</strong><span class="time">' + timeStr + '</span><br>' + formatMessage(text) + '<div class="message-actions"><small>⏳ отправка...</small></div>';
-            container.appendChild(tempDiv);
-            if (wasBottom) container.scrollTop = container.scrollHeight;
-            
-            try {
-                await fetch('/api/send_message', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ author: currentUser, text: text, time: timeStr, timestamp: Date.now() })
-                });
-                document.getElementById('temp_' + tempId)?.remove();
-                loadMessages();
-            } catch(e) {
-                document.getElementById('temp_' + tempId)?.remove();
-                alert('Ошибка отправки');
-            }
-        }
-        
         async function sendMessage() {
             let input = document.getElementById('chatInput');
             let text = input.value.trim();
             if (!text) return;
+            
+            let now = new Date();
+            let timeStr = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0') + ':' + now.getSeconds().toString().padStart(2,'0');
+            
+            await apiCall('/api/send_message', 'POST', {
+                author: currentUser,
+                text: text,
+                time: timeStr,
+                timestamp: Date.now()
+            });
             input.value = '';
-            await sendMessageText(text);
+            loadMessages();
         }
         
         async function register() {
@@ -689,7 +817,7 @@
                 loadMessages();
                 loadUsers();
                 if (currentUser === 'admin') loadPending();
-            }, 1500);
+            }, 2000);
             setTimeout(() => showNotificationBanner(), 500);
         }
         
@@ -699,9 +827,11 @@
             if (updateInterval) clearInterval(updateInterval);
             if (activeUpdateInterval) clearInterval(activeUpdateInterval);
             currentUser = null;
+            lastMessageCount = 0;
             localStorage.removeItem(STORAGE_USER_KEY);
             document.getElementById('loginName').value = '';
             document.getElementById('loginPass').value = '';
+            document.getElementById('loginError').innerText = '';
             document.getElementById('loginBox').classList.remove('hidden');
             document.getElementById('sitePage').classList.add('hidden');
         }
