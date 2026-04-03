@@ -25,7 +25,7 @@
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
         
-        input, button {
+        input, select, button {
             margin: 10px 0;
             padding: 12px;
             width: 100%;
@@ -45,6 +45,21 @@
         
         button:active {
             background: #0052a3;
+        }
+        
+        .color-option {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border-radius: 20px;
+            margin: 5px;
+            cursor: pointer;
+            border: 2px solid transparent;
+        }
+        
+        .color-option.selected {
+            border: 3px solid #333;
+            transform: scale(1.1);
         }
         
         .hidden { display: none; }
@@ -87,11 +102,6 @@
             width: auto;
             margin: 0;
             padding: 8px 16px;
-            background: #0066cc;
-        }
-        
-        .notification-banner .later {
-            background: #999;
         }
         
         .main-content {
@@ -197,7 +207,6 @@
         }
         
         .chat-message strong {
-            color: #0066cc;
             font-size: 14px;
         }
         
@@ -267,6 +276,25 @@
             padding: 12px 20px;
         }
         
+        .image-upload-btn {
+            background: #28a745;
+        }
+        
+        .image-preview {
+            display: none;
+            margin-top: 8px;
+            padding: 8px;
+            background: #f0f0f0;
+            border-radius: 12px;
+            text-align: center;
+        }
+        
+        .image-preview img {
+            max-width: 100%;
+            max-height: 150px;
+            border-radius: 8px;
+        }
+        
         @media (min-width: 768px) {
             .main-content {
                 flex-direction: row;
@@ -321,6 +349,20 @@
         <h2>Регистрация</h2>
         <input type="text" id="regName" placeholder="Придумайте ник"><br>
         <input type="password" id="regPass" placeholder="Придумайте пароль"><br>
+        
+        <label>Выберите цвет ника:</label>
+        <div id="colorPicker" style="margin: 10px 0;">
+            <div class="color-option" style="background: #ff0000;" data-color="#ff0000"></div>
+            <div class="color-option" style="background: #ff7f00;" data-color="#ff7f00"></div>
+            <div class="color-option" style="background: #ffff00;" data-color="#ffff00"></div>
+            <div class="color-option" style="background: #00ff00;" data-color="#00ff00"></div>
+            <div class="color-option" style="background: #0000ff;" data-color="#0000ff"></div>
+            <div class="color-option" style="background: #4b0082;" data-color="#4b0082"></div>
+            <div class="color-option" style="background: #9400d3;" data-color="#9400d3"></div>
+            <div class="color-option" style="background: #ff69b4;" data-color="#ff69b4"></div>
+        </div>
+        <input type="hidden" id="selectedColor" value="#ff0000">
+        
         <button onclick="register()">Зарегистрироваться</button>
         <button onclick="showLogin()">Назад ко входу</button>
         <p id="regError" class="error"></p>
@@ -359,9 +401,12 @@
                         <button type="button" class="emoji-btn" onclick="addEmoji('🎉')">🎉</button>
                     </div>
                     <div style="display: flex; gap: 8px; width: 100%; flex-wrap: wrap;">
-                        <input type="text" id="chatInput" placeholder="Сообщение или ссылка на картинку..." onkeypress="if(event.key==='Enter') sendMessage()">
+                        <input type="text" id="chatInput" placeholder="Сообщение или ссылка на картинку..." style="flex: 2;" onkeypress="if(event.key==='Enter') sendMessage()">
+                        <input type="file" id="imageUpload" accept="image/*" style="display: none;" onchange="uploadImage()">
+                        <button type="button" class="image-upload-btn" onclick="document.getElementById('imageUpload').click()">📷 Фото</button>
                         <button onclick="sendMessage()">Отправить</button>
                     </div>
+                    <div id="imagePreview" class="image-preview"></div>
                 </div>
             </div>
             
@@ -375,14 +420,24 @@
 
     <script>
         let currentUser = null;
+        let currentUserColor = '#0066cc';
         let updateInterval = null;
         let lastMessageCount = 0;
         let notificationPermission = false;
-        let notificationAsked = false;
         let messagesList = [];
         
         const STORAGE_USER_KEY = 'chat_current_user';
         const NOTIFICATION_ASKED_KEY = 'chat_notification_asked';
+        
+        // Выбор цвета при регистрации
+        document.querySelectorAll('.color-option').forEach(opt => {
+            opt.addEventListener('click', function() {
+                document.querySelectorAll('.color-option').forEach(o => o.classList.remove('selected'));
+                this.classList.add('selected');
+                document.getElementById('selectedColor').value = this.dataset.color;
+            });
+        });
+        document.querySelector('.color-option').classList.add('selected');
         
         function isNotificationSupported() {
             return 'Notification' in window;
@@ -390,6 +445,14 @@
         
         function requestNotificationPermission() {
             if (!isNotificationSupported()) return;
+            
+            if (Notification.permission === 'denied') {
+                alert('🔔 Уведомления заблокированы. Чтобы включить:\n\n' +
+                      '1. Нажмите на значок 🔒 слева от адресной строки\n' +
+                      '2. Найдите "Уведомления" → выберите "Разрешить"\n' +
+                      '3. Обновите страницу');
+                return;
+            }
             
             Notification.requestPermission().then(perm => {
                 notificationPermission = (perm === 'granted');
@@ -443,6 +506,34 @@
             input.focus();
         }
         
+        async function uploadImage() {
+            let fileInput = document.getElementById('imageUpload');
+            let file = fileInput.files[0];
+            if (!file) return;
+            
+            if (!file.type.startsWith('image/')) {
+                alert('Пожалуйста, выберите изображение');
+                return;
+            }
+            
+            if (file.size > 500 * 1024) {
+                alert('Изображение слишком большое (макс 500KB)');
+                return;
+            }
+            
+            let reader = new FileReader();
+            reader.onload = async function(e) {
+                let preview = document.getElementById('imagePreview');
+                preview.innerHTML = `<img src="${e.target.result}" alt="preview"><br><small>Нажмите "Отправить", чтобы отправить фото</small>`;
+                preview.style.display = 'block';
+                
+                let chatInput = document.getElementById('chatInput');
+                chatInput.value = e.target.result;
+            };
+            reader.readAsDataURL(file);
+            fileInput.value = '';
+        }
+        
         async function loadUsers() {
             try {
                 let users = await apiCall('/api/users');
@@ -451,14 +542,15 @@
                 if (users.length === 0) {
                     userList.innerHTML = '<li>Нет пользователей</li>';
                 } else {
-                    for (let name of users) {
+                    for (let user of users) {
                         let li = document.createElement('li');
-                        li.innerHTML = `<span>${escapeHtml(name)}</span>`;
+                        let color = user.color || '#0066cc';
+                        li.innerHTML = `<span style="color: ${color};">${escapeHtml(user.username)}</span>`;
                         if (currentUser === 'admin') {
                             let delBtn = document.createElement('button');
                             delBtn.textContent = '❌';
                             delBtn.className = 'delete-user-btn';
-                            delBtn.onclick = () => deleteUser(name);
+                            delBtn.onclick = () => deleteUser(user.username);
                             li.appendChild(delBtn);
                         }
                         userList.appendChild(li);
@@ -535,6 +627,12 @@
         
         function formatMessage(text) {
             let formatted = escapeHtml(text);
+            
+            // Проверка на base64 изображение
+            if (text.startsWith('data:image')) {
+                return `<img src="${text}" alt="фото" loading="lazy" style="max-width:100%; max-height:300px; border-radius:12px;">`;
+            }
+            
             let imageRegex = /(https?:\/\/[^\s]+\.(jpg|jpeg|png|gif|webp))/gi;
             formatted = formatted.replace(imageRegex, (match) => {
                 return `<img src="${match}" alt="картинка" loading="lazy" onerror="this.style.display='none'">`;
@@ -542,6 +640,7 @@
             let urlRegex = /(https?:\/\/[^\s]+)/gi;
             formatted = formatted.replace(urlRegex, (match) => {
                 if (match.match(/\.(jpg|jpeg|png|gif|webp)$/i)) return match;
+                if (match.startsWith('data:image')) return match;
                 return `<a href="${match}" target="_blank" rel="noopener noreferrer">${match}</a>`;
             });
             return formatted;
@@ -573,7 +672,8 @@
                 for (let msg of messages) {
                     let msgDiv = document.createElement('div');
                     msgDiv.className = 'chat-message';
-                    msgDiv.innerHTML = '<strong>' + escapeHtml(msg.author) + '</strong>' +
+                    let authorColor = msg.author_color || '#0066cc';
+                    msgDiv.innerHTML = '<strong style="color: ' + authorColor + ';">' + escapeHtml(msg.author) + '</strong>' +
                                        '<span class="time">' + msg.time + '</span><br>' +
                                        formatMessage(msg.text);
                     
@@ -591,6 +691,11 @@
                     container.appendChild(msgDiv);
                 }
                 container.scrollTop = container.scrollHeight;
+                
+                // Скрываем превью после отправки
+                let preview = document.getElementById('imagePreview');
+                preview.style.display = 'none';
+                preview.innerHTML = '';
             } catch(e) {
                 console.error('Ошибка загрузки сообщений:', e);
             }
@@ -618,6 +723,7 @@
         async function register() {
             let name = document.getElementById('regName').value.trim();
             let pass = document.getElementById('regPass').value.trim();
+            let color = document.getElementById('selectedColor').value;
             let regError = document.getElementById('regError');
             let regSuccess = document.getElementById('regSuccess');
             regError.innerText = '';
@@ -632,7 +738,7 @@
                 return;
             }
             
-            let result = await apiCall('/api/register', 'POST', { username: name, password: pass });
+            let result = await apiCall('/api/register', 'POST', { username: name, password: pass, color: color });
             if (result.success) {
                 regSuccess.innerText = 'Заявка отправлена! Ждите одобрения.';
                 document.getElementById('regName').value = '';
@@ -652,6 +758,7 @@
             let result = await apiCall('/api/login', 'POST', { username: name, password: pass });
             if (result.success) {
                 currentUser = name;
+                currentUserColor = result.color || '#0066cc';
                 localStorage.setItem(STORAGE_USER_KEY, name);
                 showSite(name);
             } else {
@@ -663,7 +770,7 @@
             document.getElementById('loginBox').classList.add('hidden');
             document.getElementById('regBox').classList.add('hidden');
             document.getElementById('sitePage').classList.remove('hidden');
-            document.getElementById('userName').innerText = name;
+            document.getElementById('userName').innerHTML = `<span style="color: ${currentUserColor};">${escapeHtml(name)}</span>`;
             
             await loadUsers();
             await loadMessages();
@@ -719,12 +826,8 @@
             if (savedUser) {
                 try {
                     let users = await apiCall('/api/users');
-                    if (savedUser === 'admin') {
-                        currentUser = savedUser;
-                        showSite(savedUser);
-                        return;
-                    }
-                    if (users.includes(savedUser)) {
+                    let userExists = users.some(u => u.username === savedUser);
+                    if (savedUser === 'admin' || userExists) {
                         currentUser = savedUser;
                         showSite(savedUser);
                         return;
