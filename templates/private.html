@@ -249,7 +249,9 @@
         let updateInterval = null;
         let activeUpdateInterval = null;
         
-        // Переменные для умной прокрутки
+        // Оптимизация: храним последний ID сообщения для каждого пользователя
+        let lastMessageIdByUser = {};
+        
         let isUserScrolling = false;
         let scrollTimeout = null;
         
@@ -347,14 +349,12 @@
             return `${days} д назад`;
         }
         
-        // Проверка, находится ли пользователь внизу чата
         function isAtBottom() {
             const container = document.getElementById('privateMessages');
             if (!container) return true;
             return container.scrollHeight - container.scrollTop - container.clientHeight < 50;
         }
         
-        // Прокрутка вниз (только если пользователь не скроллит)
         function scrollToBottomIfNeeded() {
             if (!isUserScrolling && isAtBottom()) {
                 const container = document.getElementById('privateMessages');
@@ -364,7 +364,6 @@
             }
         }
         
-        // Принудительная прокрутка вниз (при отправке сообщения)
         function forceScrollToBottom() {
             const container = document.getElementById('privateMessages');
             if (container) {
@@ -407,9 +406,7 @@
             if (!confirm(`⚠️ Очистить всю переписку с ${selectedUser}?\n\nЭто действие нельзя отменить. Сообщения будут удалены навсегда.`)) return;
             
             try {
-                // Получаем все сообщения между пользователями
                 let messages = await apiCall('/api/private_messages', 'POST', { user1: currentUser, user2: selectedUser });
-                // Удаляем каждое сообщение
                 for (let msg of messages) {
                     await fetch('/api/delete_private_message', { 
                         method: 'POST', 
@@ -417,7 +414,7 @@
                         body: JSON.stringify({ message_id: msg.id }) 
                     });
                 }
-                // Перезагружаем чат
+                lastMessageIdByUser[selectedUser] = 0;
                 await loadPrivateMessages();
                 alert(`Чат с ${selectedUser} очищен`);
             } catch(e) {
@@ -433,21 +430,43 @@
             }
             let messages = await apiCall('/api/private_messages', 'POST', { user1: currentUser, user2: selectedUser });
             let container = document.getElementById('privateMessages');
-            if (!messages.length) { container.innerHTML = '<div class="chat-message">Нет сообщений</div>'; return; }
-            
-            let needScroll = !isUserScrolling && isAtBottom();
-            
-            container.innerHTML = '';
-            for (let msg of messages) {
-                let div = document.createElement('div');
-                div.className = 'chat-message';
-                let isFromMe = msg.from_user === currentUser;
-                div.innerHTML = `<strong style="color:${msg.author_color || '#0066cc'}">${escapeHtml(isFromMe ? 'Вы' : msg.from_user)}</strong><span class="time">${msg.time}</span><br>${formatMessage(msg.text)}`;
-                container.appendChild(div);
+            if (!messages.length) { 
+                container.innerHTML = '<div class="chat-message">Нет сообщений</div>';
+                lastMessageIdByUser[selectedUser] = 0;
+                return; 
             }
             
-            if (needScroll) {
-                container.scrollTop = container.scrollHeight;
+            let currentMaxId = messages[messages.length - 1].id;
+            let lastId = lastMessageIdByUser[selectedUser] || 0;
+            
+            if (currentMaxId > lastId) {
+                let needScroll = !isUserScrolling && isAtBottom();
+                
+                if (lastId === 0) {
+                    container.innerHTML = '';
+                    for (let msg of messages) {
+                        let div = document.createElement('div');
+                        div.className = 'chat-message';
+                        let isFromMe = msg.from_user === currentUser;
+                        div.innerHTML = `<strong style="color:${msg.author_color || '#0066cc'}">${escapeHtml(isFromMe ? 'Вы' : msg.from_user)}</strong><span class="time">${msg.time}</span><br>${formatMessage(msg.text)}`;
+                        container.appendChild(div);
+                    }
+                } else {
+                    let newMessages = messages.filter(msg => msg.id > lastId);
+                    for (let msg of newMessages) {
+                        let div = document.createElement('div');
+                        div.className = 'chat-message';
+                        let isFromMe = msg.from_user === currentUser;
+                        div.innerHTML = `<strong style="color:${msg.author_color || '#0066cc'}">${escapeHtml(isFromMe ? 'Вы' : msg.from_user)}</strong><span class="time">${msg.time}</span><br>${formatMessage(msg.text)}`;
+                        container.appendChild(div);
+                    }
+                }
+                
+                lastMessageIdByUser[selectedUser] = currentMaxId;
+                
+                if (needScroll) {
+                    container.scrollTop = container.scrollHeight;
+                }
             }
         }
         
@@ -468,8 +487,11 @@
             forceScrollToBottom();
             input.value = '';
             try {
-                await apiCall('/api/send_private', 'POST', { from_user: currentUser, to_user: selectedUser, text: text, time: timeStr, timestamp: Date.now() });
+                let result = await apiCall('/api/send_private', 'POST', { from_user: currentUser, to_user: selectedUser, text: text, time: timeStr, timestamp: Date.now() });
                 document.getElementById(tempId)?.remove();
+                if (result.message_id) {
+                    lastMessageIdByUser[selectedUser] = result.message_id;
+                }
                 await loadPrivateMessages();
                 forceScrollToBottom();
             } catch(e) { document.getElementById(tempId)?.remove(); alert('Ошибка'); }
@@ -524,12 +546,12 @@
             activeUpdateInterval = setInterval(() => updateActiveStatus(), 15000);
             
             if (updateInterval) clearInterval(updateInterval);
+            // ОПТИМИЗАЦИЯ: увеличен интервал до 4 секунд
             updateInterval = setInterval(() => { 
                 loadUsers(); 
                 if (selectedUser) loadPrivateMessages(); 
-            }, 2000);
+            }, 4000);
             
-            // Отслеживаем скролл пользователя
             const chatContainer = document.getElementById('privateMessages');
             if (chatContainer) {
                 chatContainer.addEventListener('scroll', () => {
