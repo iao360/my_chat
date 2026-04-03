@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>Общий чат - полная версия</title>
+    <title>Общий чат - со стикерами и онлайн</title>
     <style>
         * {
             box-sizing: border-box;
@@ -137,6 +137,23 @@
             margin: 5px 0;
         }
         
+        .online-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 10px;
+            margin-right: 8px;
+        }
+        
+        .online-indicator.online {
+            background: #00cc44;
+            box-shadow: 0 0 5px #00cc44;
+        }
+        
+        .online-indicator.offline {
+            background: #ccc;
+        }
+        
         .delete-user-btn {
             background: #dc3545;
             padding: 4px 8px;
@@ -222,6 +239,7 @@
             border-radius: 12px;
             margin-top: 8px;
             display: block;
+            cursor: pointer;
         }
         
         .message-actions {
@@ -237,21 +255,38 @@
             margin: 0;
         }
         
-        .emoji-picker {
+        .save-photo-btn {
+            background: #28a745;
+            padding: 4px 8px;
+            font-size: 11px;
+            width: auto;
+            margin: 0 5px 0 0;
+        }
+        
+        .emoji-picker, .sticker-picker {
             display: inline-flex;
             gap: 8px;
             flex-wrap: wrap;
             margin-bottom: 8px;
         }
         
-        .emoji-btn {
-            width: 36px;
-            height: 36px;
+        .emoji-btn, .sticker-btn {
+            width: 40px;
+            height: 40px;
             padding: 0;
-            font-size: 20px;
+            font-size: 22px;
             background: #f0f0f0;
             color: #333;
-            border-radius: 20px;
+            border-radius: 12px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .sticker-btn {
+            font-size: 28px;
+            background: #fff0e0;
         }
         
         .chat-input-area {
@@ -278,6 +313,10 @@
         
         .image-upload-btn {
             background: #28a745;
+        }
+        
+        .sticker-toggle-btn {
+            background: #ff9800;
         }
         
         .image-preview {
@@ -385,7 +424,7 @@
         
         <div class="main-content">
             <div class="user-list-panel">
-                <h4>✅ Пользователи</h4>
+                <h4>✅ Пользователи <span id="onlineCount" style="font-size:12px; color:#00cc44;"></span></h4>
                 <ul id="userList"></ul>
             </div>
             
@@ -400,10 +439,23 @@
                         <button type="button" class="emoji-btn" onclick="addEmoji('👍')">👍</button>
                         <button type="button" class="emoji-btn" onclick="addEmoji('🎉')">🎉</button>
                     </div>
+                    <div class="sticker-picker" id="stickerPicker" style="display: none;">
+                        <button type="button" class="sticker-btn" onclick="sendSticker('🐱')">🐱</button>
+                        <button type="button" class="sticker-btn" onclick="sendSticker('🐶')">🐶</button>
+                        <button type="button" class="sticker-btn" onclick="sendSticker('🐼')">🐼</button>
+                        <button type="button" class="sticker-btn" onclick="sendSticker('🦊')">🦊</button>
+                        <button type="button" class="sticker-btn" onclick="sendSticker('🐸')">🐸</button>
+                        <button type="button" class="sticker-btn" onclick="sendSticker('🐧')">🐧</button>
+                        <button type="button" class="sticker-btn" onclick="sendSticker('🦄')">🦄</button>
+                        <button type="button" class="sticker-btn" onclick="sendSticker('🍕')">🍕</button>
+                        <button type="button" class="sticker-btn" onclick="sendSticker('🎂')">🎂</button>
+                        <button type="button" class="sticker-btn" onclick="sendSticker('🎈')">🎈</button>
+                    </div>
                     <div style="display: flex; gap: 8px; width: 100%; flex-wrap: wrap;">
-                        <input type="text" id="chatInput" placeholder="Сообщение или ссылка на картинку..." style="flex: 2;" onkeypress="if(event.key==='Enter') sendMessage()">
-                        <input type="file" id="imageUpload" accept="image/*" style="display: none;" onchange="uploadImage()">
-                        <button type="button" class="image-upload-btn" onclick="document.getElementById('imageUpload').click()">📷 Фото</button>
+                        <input type="text" id="chatInput" placeholder="Сообщение..." style="flex: 2;" onkeypress="if(event.key==='Enter') sendMessage()">
+                        <input type="file" id="imageUpload" accept="image/*" style="display: none;" onchange="handleImageUpload()">
+                        <button type="button" class="image-upload-btn" onclick="document.getElementById('imageUpload').click()">📷</button>
+                        <button type="button" class="sticker-toggle-btn" onclick="toggleStickers()">😺</button>
                         <button onclick="sendMessage()">Отправить</button>
                     </div>
                     <div id="imagePreview" class="image-preview"></div>
@@ -424,20 +476,115 @@
         let updateInterval = null;
         let lastMessageCount = 0;
         let notificationPermission = false;
-        let messagesList = [];
+        let activeUpdateInterval = null;
+        let wasAtBottom = true;
         
         const STORAGE_USER_KEY = 'chat_current_user';
         const NOTIFICATION_ASKED_KEY = 'chat_notification_asked';
         
-        // Выбор цвета при регистрации
-        document.querySelectorAll('.color-option').forEach(opt => {
-            opt.addEventListener('click', function() {
-                document.querySelectorAll('.color-option').forEach(o => o.classList.remove('selected'));
-                this.classList.add('selected');
-                document.getElementById('selectedColor').value = this.dataset.color;
+        // Функция сжатия изображения
+        function compressImage(file, maxSizeKB = 500) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.src = e.target.result;
+                    img.onload = () => {
+                        let width = img.width;
+                        let height = img.height;
+                        let quality = 0.9;
+                        
+                        const canvas = document.createElement('canvas');
+                        let ctx = canvas.getContext('2d');
+                        
+                        // Максимальные размеры
+                        const maxWidth = 1200;
+                        const maxHeight = 1200;
+                        
+                        if (width > maxWidth) {
+                            height = (height * maxWidth) / width;
+                            width = maxWidth;
+                        }
+                        if (height > maxHeight) {
+                            width = (width * maxHeight) / height;
+                            height = maxHeight;
+                        }
+                        
+                        canvas.width = width;
+                        canvas.height = height;
+                        ctx.drawImage(img, 0, 0, width, height);
+                        
+                        let compressed = canvas.toDataURL('image/jpeg', quality);
+                        
+                        // Проверяем размер, если больше - уменьшаем качество
+                        while (compressed.length > maxSizeKB * 1024 && quality > 0.3) {
+                            quality -= 0.1;
+                            compressed = canvas.toDataURL('image/jpeg', quality);
+                        }
+                        
+                        resolve(compressed);
+                    };
+                    img.onerror = reject;
+                };
+                reader.onerror = reject;
             });
-        });
-        document.querySelector('.color-option').classList.add('selected');
+        }
+        
+        async function handleImageUpload() {
+            let fileInput = document.getElementById('imageUpload');
+            let file = fileInput.files[0];
+            if (!file) return;
+            
+            if (!file.type.startsWith('image/')) {
+                alert('Пожалуйста, выберите изображение');
+                return;
+            }
+            
+            // Показываем превью
+            let preview = document.getElementById('imagePreview');
+            let reader = new FileReader();
+            reader.onload = function(e) {
+                preview.innerHTML = `<img src="${e.target.result}" alt="preview"><br><small>Сжатие и отправка...</small>`;
+                preview.style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+            
+            try {
+                // Сжимаем изображение
+                let compressed = await compressImage(file, 500);
+                
+                // Обновляем превью
+                preview.innerHTML = `<img src="${compressed}" alt="preview"><br><small>Нажмите "Отправить", чтобы отправить фото</small>`;
+                
+                let chatInput = document.getElementById('chatInput');
+                chatInput.value = compressed;
+            } catch(e) {
+                alert('Ошибка при обработке изображения');
+                preview.style.display = 'none';
+            }
+            
+            fileInput.value = '';
+        }
+        
+        function savePhoto(imageSrc) {
+            const link = document.createElement('a');
+            link.href = imageSrc;
+            link.download = `chat_photo_${Date.now()}.jpg`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+        
+        function toggleStickers() {
+            let picker = document.getElementById('stickerPicker');
+            picker.style.display = picker.style.display === 'none' ? 'flex' : 'none';
+        }
+        
+        function sendSticker(sticker) {
+            sendMessageText(sticker);
+            document.getElementById('stickerPicker').style.display = 'none';
+        }
         
         function isNotificationSupported() {
             return 'Notification' in window;
@@ -506,32 +653,24 @@
             input.focus();
         }
         
-        async function uploadImage() {
-            let fileInput = document.getElementById('imageUpload');
-            let file = fileInput.files[0];
-            if (!file) return;
-            
-            if (!file.type.startsWith('image/')) {
-                alert('Пожалуйста, выберите изображение');
-                return;
+        async function updateActiveStatus() {
+            if (currentUser) {
+                await apiCall('/api/active', 'POST', { username: currentUser });
             }
-            
-            if (file.size > 500 * 1024) {
-                alert('Изображение слишком большое (макс 500KB)');
-                return;
+        }
+        
+        function checkIfAtBottom() {
+            const container = document.getElementById('chatMessages');
+            if (!container) return true;
+            const threshold = 100;
+            return container.scrollHeight - container.scrollTop - container.clientHeight < threshold;
+        }
+        
+        function scrollToBottom() {
+            const container = document.getElementById('chatMessages');
+            if (container && wasAtBottom) {
+                container.scrollTop = container.scrollHeight;
             }
-            
-            let reader = new FileReader();
-            reader.onload = async function(e) {
-                let preview = document.getElementById('imagePreview');
-                preview.innerHTML = `<img src="${e.target.result}" alt="preview"><br><small>Нажмите "Отправить", чтобы отправить фото</small>`;
-                preview.style.display = 'block';
-                
-                let chatInput = document.getElementById('chatInput');
-                chatInput.value = e.target.result;
-            };
-            reader.readAsDataURL(file);
-            fileInput.value = '';
         }
         
         async function loadUsers() {
@@ -539,14 +678,20 @@
                 let users = await apiCall('/api/users');
                 let userList = document.getElementById('userList');
                 userList.innerHTML = '';
+                let onlineCount = 0;
+                
                 if (users.length === 0) {
                     userList.innerHTML = '<li>Нет пользователей</li>';
                 } else {
                     for (let user of users) {
                         let li = document.createElement('li');
                         let color = user.color || '#0066cc';
-                        li.innerHTML = `<span style="color: ${color};">${escapeHtml(user.username)}</span>`;
-                        if (currentUser === 'admin') {
+                        let online = user.online || false;
+                        if (online) onlineCount++;
+                        
+                        li.innerHTML = `<span><span class="online-indicator ${online ? 'online' : 'offline'}"></span><span style="color: ${color};">${escapeHtml(user.username)}</span></span>`;
+                        
+                        if (currentUser === 'admin' && user.username !== 'admin') {
                             let delBtn = document.createElement('button');
                             delBtn.textContent = '❌';
                             delBtn.className = 'delete-user-btn';
@@ -555,6 +700,11 @@
                         }
                         userList.appendChild(li);
                     }
+                }
+                
+                let onlineSpan = document.getElementById('onlineCount');
+                if (onlineSpan) {
+                    onlineSpan.innerHTML = `🟢 ${onlineCount} онлайн`;
                 }
             } catch(e) {
                 console.error('Ошибка загрузки пользователей:', e);
@@ -628,14 +778,13 @@
         function formatMessage(text) {
             let formatted = escapeHtml(text);
             
-            // Проверка на base64 изображение
             if (text.startsWith('data:image')) {
-                return `<img src="${text}" alt="фото" loading="lazy" style="max-width:100%; max-height:300px; border-radius:12px;">`;
+                return `<img src="${text}" alt="фото" loading="lazy" style="max-width:100%; max-height:300px; border-radius:12px; cursor:pointer;" onclick="savePhoto('${text}')">`;
             }
             
             let imageRegex = /(https?:\/\/[^\s]+\.(jpg|jpeg|png|gif|webp))/gi;
             formatted = formatted.replace(imageRegex, (match) => {
-                return `<img src="${match}" alt="картинка" loading="lazy" onerror="this.style.display='none'">`;
+                return `<img src="${match}" alt="картинка" loading="lazy" style="max-width:100%; max-height:300px; border-radius:12px; cursor:pointer;" onclick="savePhoto('${match}')">`;
             });
             let urlRegex = /(https?:\/\/[^\s]+)/gi;
             formatted = formatted.replace(urlRegex, (match) => {
@@ -652,8 +801,6 @@
                 let container = document.getElementById('chatMessages');
                 if (!container) return;
                 
-                messagesList = messages;
-                
                 if (messages.length === 0) {
                     container.innerHTML = '<div class="chat-message" style="text-align:center;">Нет сообщений</div>';
                     lastMessageCount = 0;
@@ -666,7 +813,8 @@
                         sendNotification('Новое сообщение от ' + lastMsg.author, lastMsg.text.substring(0, 100));
                     }
                 }
-                lastMessageCount = messages.length;
+                
+                let needScroll = checkIfAtBottom();
                 
                 container.innerHTML = '';
                 for (let msg of messages) {
@@ -690,9 +838,13 @@
                     
                     container.appendChild(msgDiv);
                 }
-                container.scrollTop = container.scrollHeight;
                 
-                // Скрываем превью после отправки
+                if (needScroll) {
+                    container.scrollTop = container.scrollHeight;
+                }
+                
+                lastMessageCount = messages.length;
+                
                 let preview = document.getElementById('imagePreview');
                 preview.style.display = 'none';
                 preview.innerHTML = '';
@@ -701,9 +853,7 @@
             }
         }
         
-        async function sendMessage() {
-            let input = document.getElementById('chatInput');
-            let text = input.value.trim();
+        async function sendMessageText(text) {
             if (!text) return;
             
             let now = new Date();
@@ -716,6 +866,14 @@
                 time: timeStr,
                 timestamp: Date.now()
             });
+        }
+        
+        async function sendMessage() {
+            let input = document.getElementById('chatInput');
+            let text = input.value.trim();
+            if (!text) return;
+            
+            await sendMessageText(text);
             input.value = '';
             loadMessages();
         }
@@ -761,6 +919,9 @@
                 currentUserColor = result.color || '#0066cc';
                 localStorage.setItem(STORAGE_USER_KEY, name);
                 showSite(name);
+                updateActiveStatus();
+                if (activeUpdateInterval) clearInterval(activeUpdateInterval);
+                activeUpdateInterval = setInterval(() => updateActiveStatus(), 15000);
             } else {
                 loginError.innerText = result.error || 'Неверный логин или пароль';
             }
@@ -784,10 +945,12 @@
             
             if (updateInterval) clearInterval(updateInterval);
             updateInterval = setInterval(() => {
+                wasAtBottom = checkIfAtBottom();
                 loadMessages();
                 loadUsers();
                 if (currentUser === 'admin') loadPending();
-            }, 3000);
+                setTimeout(() => { wasAtBottom = checkIfAtBottom(); }, 100);
+            }, 2000);
             
             setTimeout(() => {
                 showNotificationBanner();
@@ -800,6 +963,7 @@
         
         function logout() {
             if (updateInterval) clearInterval(updateInterval);
+            if (activeUpdateInterval) clearInterval(activeUpdateInterval);
             currentUser = null;
             lastMessageCount = 0;
             localStorage.removeItem(STORAGE_USER_KEY);
@@ -830,6 +994,9 @@
                     if (savedUser === 'admin' || userExists) {
                         currentUser = savedUser;
                         showSite(savedUser);
+                        updateActiveStatus();
+                        if (activeUpdateInterval) clearInterval(activeUpdateInterval);
+                        activeUpdateInterval = setInterval(() => updateActiveStatus(), 15000);
                         return;
                     }
                 } catch(e) {
@@ -842,6 +1009,7 @@
         document.addEventListener('visibilitychange', function() {
             if (!document.hidden) {
                 loadMessages();
+                updateActiveStatus();
             }
         });
         
@@ -858,6 +1026,13 @@
             if (laterBtn) {
                 laterBtn.addEventListener('click', () => {
                     hideNotificationBanner(true);
+                });
+            }
+            
+            const chatContainer = document.getElementById('chatMessages');
+            if (chatContainer) {
+                chatContainer.addEventListener('scroll', () => {
+                    wasAtBottom = checkIfAtBottom();
                 });
             }
         });
