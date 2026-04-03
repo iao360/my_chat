@@ -1,6 +1,8 @@
 from flask import Flask, render_template, request, jsonify
 from datetime import datetime
 import requests
+import base64
+import re
 
 app = Flask(__name__)
 
@@ -13,6 +15,20 @@ HEADERS = {
     "Authorization": f"Bearer {SUPABASE_KEY}",
     "Content-Type": "application/json"
 }
+
+# Добавляем таблицу цветов, если её нет
+def init_colors_table():
+    try:
+        # Проверяем, есть ли колонка color в таблице users
+        url = f"{SUPABASE_URL}/rest/v1/users?select=color&limit=1"
+        response = requests.get(url, headers=HEADERS)
+        if response.status_code == 200:
+            return
+    except:
+        pass
+    print("Таблица users уже содержит color или будет создана позже")
+
+init_colors_table()
 
 def supabase_get(table, select="*", eq_column=None, eq_value=None, limit=None, order=None):
     url = f"{SUPABASE_URL}/rest/v1/{table}?select={select}"
@@ -29,6 +45,12 @@ def supabase_post(table, data):
     url = f"{SUPABASE_URL}/rest/v1/{table}"
     response = requests.post(url, headers=HEADERS, json=data)
     return response.json() if response.status_code == 201 else None
+
+def supabase_patch(table, eq_column, eq_value, data):
+    """Обновление записи"""
+    url = f"{SUPABASE_URL}/rest/v1/{table}?{eq_column}=eq.{eq_value}"
+    response = requests.patch(url, headers=HEADERS, json=data)
+    return response.status_code == 200
 
 def supabase_delete(table, eq_column, eq_value):
     url = f"{SUPABASE_URL}/rest/v1/{table}?{eq_column}=eq.{eq_value}"
@@ -51,11 +73,10 @@ def index():
 
 @app.route('/api/users')
 def get_users():
-    users = supabase_get("users", select="username", eq_column="is_approved", eq_value=1)
+    users = supabase_get("users", select="username,color", eq_column="is_approved", eq_value=1)
     if isinstance(users, dict) and "error" in users:
         return jsonify([])
-    usernames = [u["username"] for u in users if u["username"] != "admin"]
-    return jsonify(usernames)
+    return jsonify(users)
 
 @app.route('/api/pending')
 def get_pending():
@@ -67,10 +88,18 @@ def get_pending():
 
 @app.route('/api/messages')
 def get_messages():
-    messages = supabase_get("messages", select="*", order="timestamp.desc", limit=100)
+    messages = supabase_get("messages", select="*", order="timestamp.desc", limit=200)
     if isinstance(messages, dict) and "error" in messages:
         return jsonify([])
     messages.sort(key=lambda x: x.get("timestamp", 0))
+    
+    # Добавляем цвет автора к каждому сообщению
+    users = supabase_get("users", select="username,color", eq_column="is_approved", eq_value=1)
+    user_colors = {u["username"]: u.get("color", "#0066cc") for u in users if isinstance(u, dict)}
+    
+    for msg in messages:
+        msg["author_color"] = user_colors.get(msg["author"], "#0066cc")
+    
     return jsonify(messages)
 
 @app.route('/api/register', methods=['POST'])
@@ -79,6 +108,7 @@ def register():
         data = request.json
         username = data.get('username')
         password = data.get('password')
+        color = data.get('color', '#0066cc')
         
         existing = supabase_get("users", select="username", eq_column="username", eq_value=username)
         if existing and len(existing) > 0:
@@ -88,7 +118,7 @@ def register():
         if existing_pending and len(existing_pending) > 0:
             return jsonify({'success': False, 'error': 'Заявка уже отправлена'})
         
-        supabase_post("pending", {"username": username, "password": password})
+        supabase_post("pending", {"username": username, "password": password, "color": color})
         return jsonify({'success': True})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
@@ -105,7 +135,7 @@ def login():
         if users and len(users) > 0:
             user = users[0]
             if user.get("password") == password and user.get("is_approved") == 1:
-                return jsonify({'success': True})
+                return jsonify({'success': True, 'color': user.get("color", "#0066cc")})
         
         return jsonify({'success': False, 'error': 'Неверный логин или пароль'})
     except Exception as e:
@@ -122,7 +152,8 @@ def approve():
             return jsonify({'success': False})
         
         password = pending[0]["password"]
-        supabase_post("users", {"username": username, "password": password, "is_approved": 1})
+        color = pending[0].get("color", "#0066cc")
+        supabase_post("users", {"username": username, "password": password, "is_approved": 1, "color": color})
         supabase_delete("pending", "username", username)
         
         return jsonify({'success': True})
@@ -141,18 +172,15 @@ def reject():
 
 @app.route('/api/delete_user', methods=['POST'])
 def delete_user():
-    """Админ удаляет пользователя и все его сообщения"""
     try:
         data = request.json
         username = data.get('username')
         
-        # Удаляем сообщения пользователя
         messages = supabase_get("messages", select="id", eq_column="author", eq_value=username)
         if messages and len(messages) > 0:
             for msg in messages:
                 supabase_delete("messages", "id", msg["id"])
         
-        # Удаляем пользователя
         supabase_delete("users", "username", username)
         
         return jsonify({'success': True})
@@ -161,7 +189,6 @@ def delete_user():
 
 @app.route('/api/delete_message', methods=['POST'])
 def delete_message():
-    """Пользователь удаляет своё сообщение"""
     try:
         data = request.json
         message_id = data.get('message_id')
@@ -172,10 +199,26 @@ def delete_message():
 
 @app.route('/api/clear_chat', methods=['POST'])
 def clear_chat():
-    """Админ полностью очищает чат"""
     try:
         supabase_delete_all("messages")
         return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/upload_image', methods=['POST'])
+def upload_image():
+    try:
+        data = request.json
+        image_data = data.get('image')
+        
+        # Проверяем base64 строку
+        if image_data and image_data.startswith('data:image'):
+            # Ограничиваем размер (500KB)
+            if len(image_data) > 700000:
+                return jsonify({'success': False, 'error': 'Изображение слишком большое (макс 500KB)'})
+            return jsonify({'success': True, 'image_url': image_data})
+        
+        return jsonify({'success': False, 'error': 'Неверный формат изображения'})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
