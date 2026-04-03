@@ -319,6 +319,10 @@
         let activeUpdateInterval = null;
         let notificationPermission = false;
         
+        // Переменные для умной прокрутки
+        let isUserScrolling = false;
+        let scrollTimeout = null;
+        
         const STORAGE_USER_KEY = 'chat_current_user';
         const NOTIFICATION_ASKED_KEY = 'chat_notification_asked';
         
@@ -432,6 +436,31 @@
         
         function escapeHtml(text) { let div = document.createElement('div'); div.textContent = text; return div.innerHTML; }
         
+        // Проверка, находится ли пользователь внизу чата
+        function isAtBottom() {
+            const container = document.getElementById('publicMessages');
+            if (!container) return true;
+            return container.scrollHeight - container.scrollTop - container.clientHeight < 50;
+        }
+        
+        // Прокрутка вниз (только если пользователь не скроллит)
+        function scrollToBottomIfNeeded() {
+            if (!isUserScrolling && isAtBottom()) {
+                const container = document.getElementById('publicMessages');
+                if (container) {
+                    container.scrollTop = container.scrollHeight;
+                }
+            }
+        }
+        
+        // Принудительная прокрутка вниз (при отправке сообщения)
+        function forceScrollToBottom() {
+            const container = document.getElementById('publicMessages');
+            if (container) {
+                container.scrollTop = container.scrollHeight;
+            }
+        }
+        
         async function loadUsers() {
             try {
                 let users = await apiCall('/api/users');
@@ -466,11 +495,32 @@
             }
         }
         
+        let lastMessageId = 0;
+        
         async function loadPublicMessages() {
             let messages = await apiCall('/api/messages');
             let container = document.getElementById('publicMessages');
             if (!container) return;
-            if (messages.length === 0) { container.innerHTML = '<div class="chat-message">Нет сообщений</div>'; return; }
+            
+            let needScroll = !isUserScrolling && isAtBottom();
+            
+            if (messages.length === 0) { 
+                container.innerHTML = '<div class="chat-message">Нет сообщений</div>'; 
+                lastMessageId = 0;
+                return; 
+            }
+            
+            // Уведомления о новых сообщениях
+            if (messages.length > 0 && lastMessageId !== 0 && currentUser) {
+                let lastMsg = messages[messages.length - 1];
+                if (lastMsg.id !== lastMessageId && lastMsg.author !== currentUser) {
+                    sendNotification('Новое сообщение от ' + lastMsg.author, lastMsg.text.substring(0, 100));
+                }
+            }
+            if (messages.length > 0) {
+                lastMessageId = messages[messages.length - 1].id;
+            }
+            
             container.innerHTML = '';
             for (let msg of messages) {
                 let div = document.createElement('div');
@@ -488,7 +538,10 @@
                 }
                 container.appendChild(div);
             }
-            container.scrollTop = container.scrollHeight;
+            
+            if (needScroll) {
+                container.scrollTop = container.scrollHeight;
+            }
         }
         
         async function sendPublicMessage() {
@@ -504,12 +557,13 @@
             tempDiv.id = tempId;
             tempDiv.innerHTML = `<strong style="color:${currentUserColor}">${escapeHtml(currentUser)}</strong><span class="time">${timeStr}</span><br>${formatMessage(text)}<div class="message-actions"><small>⏳ отправляется...</small></div>`;
             container.appendChild(tempDiv);
-            container.scrollTop = container.scrollHeight;
+            forceScrollToBottom();
             input.value = '';
             try {
                 await apiCall('/api/send_message', 'POST', { author: currentUser, text: text, time: timeStr, timestamp: Date.now() });
                 document.getElementById(tempId)?.remove();
-                loadPublicMessages();
+                await loadPublicMessages();
+                forceScrollToBottom();
             } catch(e) { document.getElementById(tempId)?.remove(); alert('Ошибка'); }
         }
         
@@ -577,8 +631,25 @@
             await loadPublicMessages();
             if (currentUser === 'admin') document.getElementById('adminPanel').classList.remove('hidden');
             if (updateInterval) clearInterval(updateInterval);
-            updateInterval = setInterval(() => { loadPublicMessages(); loadUsers(); if (currentUser === 'admin') loadPending(); }, 2000);
+            updateInterval = setInterval(() => { 
+                loadPublicMessages(); 
+                loadUsers(); 
+                if (currentUser === 'admin') loadPending(); 
+            }, 2000);
             setTimeout(() => showNotificationBanner(), 500);
+            
+            // Отслеживаем скролл пользователя
+            const chatContainer = document.getElementById('publicMessages');
+            if (chatContainer) {
+                chatContainer.addEventListener('scroll', () => {
+                    isUserScrolling = true;
+                    if (scrollTimeout) clearTimeout(scrollTimeout);
+                    scrollTimeout = setTimeout(() => {
+                        isUserScrolling = false;
+                        scrollToBottomIfNeeded();
+                    }, 300);
+                });
+            }
         }
         
         function confirmLogout() { if (confirm('Выйти?')) logout(); }
