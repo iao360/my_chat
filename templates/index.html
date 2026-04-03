@@ -319,6 +319,10 @@
         let activeUpdateInterval = null;
         let notificationPermission = false;
         
+        // Оптимизация: храним последний ID сообщения
+        let lastMessageId = 0;
+        let lastMessageTimestamp = 0;
+        
         // Переменные для умной прокрутки
         let isUserScrolling = false;
         let scrollTimeout = null;
@@ -436,14 +440,12 @@
         
         function escapeHtml(text) { let div = document.createElement('div'); div.textContent = text; return div.innerHTML; }
         
-        // Проверка, находится ли пользователь внизу чата
         function isAtBottom() {
             const container = document.getElementById('publicMessages');
             if (!container) return true;
             return container.scrollHeight - container.scrollTop - container.clientHeight < 50;
         }
         
-        // Прокрутка вниз (только если пользователь не скроллит)
         function scrollToBottomIfNeeded() {
             if (!isUserScrolling && isAtBottom()) {
                 const container = document.getElementById('publicMessages');
@@ -453,7 +455,6 @@
             }
         }
         
-        // Принудительная прокрутка вниз (при отправке сообщения)
         function forceScrollToBottom() {
             const container = document.getElementById('publicMessages');
             if (container) {
@@ -495,53 +496,87 @@
             }
         }
         
-        let lastMessageId = 0;
-        
+        // Оптимизированная загрузка сообщений - только новые
         async function loadPublicMessages() {
-            let messages = await apiCall('/api/messages');
-            let container = document.getElementById('publicMessages');
-            if (!container) return;
-            
-            let needScroll = !isUserScrolling && isAtBottom();
-            
-            if (messages.length === 0) { 
-                container.innerHTML = '<div class="chat-message">Нет сообщений</div>'; 
-                lastMessageId = 0;
-                return; 
-            }
-            
-            // Уведомления о новых сообщениях
-            if (messages.length > 0 && lastMessageId !== 0 && currentUser) {
-                let lastMsg = messages[messages.length - 1];
-                if (lastMsg.id !== lastMessageId && lastMsg.author !== currentUser) {
-                    sendNotification('Новое сообщение от ' + lastMsg.author, lastMsg.text.substring(0, 100));
+            try {
+                let messages = await apiCall('/api/messages');
+                let container = document.getElementById('publicMessages');
+                if (!container) return;
+                
+                if (messages.length === 0) { 
+                    container.innerHTML = '<div class="chat-message">Нет сообщений</div>'; 
+                    lastMessageId = 0;
+                    return; 
                 }
-            }
-            if (messages.length > 0) {
-                lastMessageId = messages[messages.length - 1].id;
-            }
-            
-            container.innerHTML = '';
-            for (let msg of messages) {
-                let div = document.createElement('div');
-                div.className = 'chat-message';
-                div.innerHTML = `<strong style="color:${msg.author_color || '#0066cc'}">${escapeHtml(msg.author)}</strong><span class="time">${msg.time}</span><br>${formatMessage(msg.text)}`;
-                if (msg.author === currentUser || currentUser === 'admin') {
-                    let actions = document.createElement('div');
-                    actions.className = 'message-actions';
-                    let delBtn = document.createElement('button');
-                    delBtn.textContent = '🗑️';
-                    delBtn.className = 'delete-msg-btn';
-                    delBtn.onclick = () => deleteMessage(msg.id);
-                    actions.appendChild(delBtn);
-                    div.appendChild(actions);
+                
+                let newMessages = [];
+                let currentMaxId = messages[messages.length - 1].id;
+                
+                // Если есть новые сообщения
+                if (currentMaxId > lastMessageId) {
+                    // Находим только новые сообщения
+                    for (let msg of messages) {
+                        if (msg.id > lastMessageId) {
+                            newMessages.push(msg);
+                        }
+                    }
+                    
+                    // Уведомление о новых сообщениях (только если не от себя)
+                    if (newMessages.length > 0 && lastMessageId !== 0 && currentUser) {
+                        let lastNewMsg = newMessages[newMessages.length - 1];
+                        if (lastNewMsg.author !== currentUser) {
+                            sendNotification('Новое сообщение от ' + lastNewMsg.author, lastNewMsg.text.substring(0, 100));
+                        }
+                    }
+                    
+                    let needScroll = !isUserScrolling && isAtBottom();
+                    
+                    // Если это первая загрузка - отображаем все
+                    if (lastMessageId === 0) {
+                        container.innerHTML = '';
+                        for (let msg of messages) {
+                            let div = document.createElement('div');
+                            div.className = 'chat-message';
+                            div.innerHTML = `<strong style="color:${msg.author_color || '#0066cc'}">${escapeHtml(msg.author)}</strong><span class="time">${msg.time}</span><br>${formatMessage(msg.text)}`;
+                            if (msg.author === currentUser || currentUser === 'admin') {
+                                let actions = document.createElement('div');
+                                actions.className = 'message-actions';
+                                let delBtn = document.createElement('button');
+                                delBtn.textContent = '🗑️';
+                                delBtn.className = 'delete-msg-btn';
+                                delBtn.onclick = () => deleteMessage(msg.id);
+                                actions.appendChild(delBtn);
+                                div.appendChild(actions);
+                            }
+                            container.appendChild(div);
+                        }
+                    } else {
+                        // Добавляем только новые сообщения в конец
+                        for (let msg of newMessages) {
+                            let div = document.createElement('div');
+                            div.className = 'chat-message';
+                            div.innerHTML = `<strong style="color:${msg.author_color || '#0066cc'}">${escapeHtml(msg.author)}</strong><span class="time">${msg.time}</span><br>${formatMessage(msg.text)}`;
+                            if (msg.author === currentUser || currentUser === 'admin') {
+                                let actions = document.createElement('div');
+                                actions.className = 'message-actions';
+                                let delBtn = document.createElement('button');
+                                delBtn.textContent = '🗑️';
+                                delBtn.className = 'delete-msg-btn';
+                                delBtn.onclick = () => deleteMessage(msg.id);
+                                actions.appendChild(delBtn);
+                                div.appendChild(actions);
+                            }
+                            container.appendChild(div);
+                        }
+                    }
+                    
+                    lastMessageId = currentMaxId;
+                    
+                    if (needScroll) {
+                        container.scrollTop = container.scrollHeight;
+                    }
                 }
-                container.appendChild(div);
-            }
-            
-            if (needScroll) {
-                container.scrollTop = container.scrollHeight;
-            }
+            } catch(e) { console.error(e); }
         }
         
         async function sendPublicMessage() {
@@ -560,19 +595,32 @@
             forceScrollToBottom();
             input.value = '';
             try {
-                await apiCall('/api/send_message', 'POST', { author: currentUser, text: text, time: timeStr, timestamp: Date.now() });
+                let result = await apiCall('/api/send_message', 'POST', { author: currentUser, text: text, time: timeStr, timestamp: Date.now() });
                 document.getElementById(tempId)?.remove();
+                // Обновляем последний ID для быстрого отображения
+                if (result.message_id) {
+                    lastMessageId = result.message_id;
+                }
                 await loadPublicMessages();
                 forceScrollToBottom();
             } catch(e) { document.getElementById(tempId)?.remove(); alert('Ошибка'); }
         }
         
         async function deleteMessage(id) {
-            if (confirm('Удалить?')) { await apiCall('/api/delete_message', 'POST', { message_id: id }); loadPublicMessages(); }
+            if (confirm('Удалить?')) { 
+                await apiCall('/api/delete_message', 'POST', { message_id: id }); 
+                // Сбрасываем lastMessageId, чтобы перезагрузить всё
+                lastMessageId = 0;
+                loadPublicMessages(); 
+            }
         }
         
         async function clearChat() {
-            if (confirm('Очистить чат?')) { await apiCall('/api/clear_chat', 'POST'); loadPublicMessages(); }
+            if (confirm('Очистить чат?')) { 
+                await apiCall('/api/clear_chat', 'POST'); 
+                lastMessageId = 0;
+                loadPublicMessages(); 
+            }
         }
         
         async function loadPending() {
@@ -631,14 +679,14 @@
             await loadPublicMessages();
             if (currentUser === 'admin') document.getElementById('adminPanel').classList.remove('hidden');
             if (updateInterval) clearInterval(updateInterval);
+            // ОПТИМИЗАЦИЯ: увеличен интервал до 4 секунд
             updateInterval = setInterval(() => { 
                 loadPublicMessages(); 
                 loadUsers(); 
                 if (currentUser === 'admin') loadPending(); 
-            }, 2000);
+            }, 4000);
             setTimeout(() => showNotificationBanner(), 500);
             
-            // Отслеживаем скролл пользователя
             const chatContainer = document.getElementById('publicMessages');
             if (chatContainer) {
                 chatContainer.addEventListener('scroll', () => {
