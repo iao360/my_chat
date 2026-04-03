@@ -3,11 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>Чат - общий и личный</title>
+    <title>Общий чат</title>
     <style>
         * { box-sizing: border-box; }
         
-        /* Светлая тема (по умолчанию) */
         body.light {
             --bg: #f5f5f5;
             --card-bg: white;
@@ -22,7 +21,6 @@
             --admin-border: #ffe0a3;
         }
         
-        /* Тёмная тема */
         body.dark {
             --bg: #1a1a2e;
             --card-bg: #16213e;
@@ -96,47 +94,11 @@
             justify-content: space-between;
             align-items: center;
             border-bottom: 1px solid var(--border);
-            position: sticky;
-            top: 0;
-            z-index: 100;
             flex-wrap: wrap;
             gap: 10px;
         }
         
         .site-header button { width: auto; padding: 8px 16px; margin: 0; }
-        
-        .tab-bar {
-            display: flex;
-            gap: 10px;
-            padding: 10px;
-            background: var(--card-bg);
-            border-bottom: 1px solid var(--border);
-        }
-        
-        .tab-btn {
-            flex: 1;
-            margin: 0;
-            background: var(--bg);
-            color: var(--text);
-            border: 1px solid var(--border);
-        }
-        
-        .tab-btn.active {
-            background: #0066cc;
-            color: white;
-        }
-        
-        .notification-banner {
-            background: #e8f0fe;
-            padding: 10px 16px;
-            margin: 10px;
-            border-radius: 12px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 10px;
-        }
         
         .main-content {
             display: flex;
@@ -154,16 +116,7 @@
         
         .user-list-panel h4 { margin: 0 0 8px 0; font-size: 14px; }
         .user-list-panel ul { margin: 0; padding-left: 20px; font-size: 14px; }
-        .user-list-panel li {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin: 5px 0;
-            cursor: pointer;
-            padding: 5px;
-            border-radius: 8px;
-        }
-        .user-list-panel li:hover { background: var(--border); }
+        .user-list-panel li { display: flex; justify-content: space-between; align-items: center; margin: 5px 0; }
         
         .online-indicator {
             display: inline-block;
@@ -181,7 +134,6 @@
             font-size: 11px;
             width: auto;
             margin: 0;
-            cursor: pointer;
         }
         
         .admin-panel {
@@ -223,7 +175,6 @@
             background: var(--msg-bg);
             border-radius: 16px;
             word-wrap: break-word;
-            position: relative;
             border: 1px solid var(--border);
         }
         
@@ -262,20 +213,8 @@
         .chat-input-area button { width: auto; margin: 0; padding: 12px 20px; }
         .image-upload-btn { background: #28a745; }
         
-        .theme-toggle {
-            background: #ff9800;
-            width: auto;
-            padding: 8px 16px;
-        }
-        
-        .unread-badge {
-            background: red;
-            color: white;
-            border-radius: 10px;
-            padding: 2px 6px;
-            font-size: 10px;
-            margin-left: 5px;
-        }
+        .theme-toggle, .private-chat-btn { background: #ff9800; width: auto; }
+        .private-chat-btn { background: #9c27b0; }
         
         @media (min-width: 768px) {
             .main-content { flex-direction: row; gap: 20px; align-items: flex-start; }
@@ -324,14 +263,10 @@
         <div class="site-header">
             <span>Добро пожаловать, <b id="userName"></b>!</span>
             <div style="display: flex; gap: 10px;">
+                <button class="private-chat-btn" onclick="goToPrivateChat()">💬 Личные сообщения</button>
                 <button class="theme-toggle" onclick="toggleTheme()">🌓 Тема</button>
                 <button onclick="confirmLogout()">Выйти</button>
             </div>
-        </div>
-        
-        <div class="tab-bar">
-            <button class="tab-btn active" onclick="switchTab('public')">💬 Общий чат</button>
-            <button class="tab-btn" onclick="switchTab('private')">🔒 Личный чат <span id="privateUnread" style="display:none;" class="unread-badge">!</span></button>
         </div>
         
         <div id="notificationBanner" class="notification-banner hidden">
@@ -342,7 +277,7 @@
             </div>
         </div>
         
-        <div id="publicTab" class="main-content">
+        <div class="main-content">
             <div class="user-list-panel">
                 <h4>✅ Пользователи <span id="onlineCount"></span></h4>
                 <ul id="userList"></ul>
@@ -352,16 +287,16 @@
                 <div class="chat-messages" id="publicMessages">Загрузка...</div>
                 <div class="chat-input-area">
                     <div class="emoji-picker">
-                        <button class="emoji-btn" onclick="addEmoji('public', '😀')">😀</button>
-                        <button class="emoji-btn" onclick="addEmoji('public', '😂')">😂</button>
-                        <button class="emoji-btn" onclick="addEmoji('public', '❤️')">❤️</button>
-                        <button class="emoji-btn" onclick="addEmoji('public', '🔥')">🔥</button>
-                        <button class="emoji-btn" onclick="addEmoji('public', '👍')">👍</button>
-                        <button class="emoji-btn" onclick="addEmoji('public', '🎉')">🎉</button>
+                        <button class="emoji-btn" onclick="addEmoji('😀')">😀</button>
+                        <button class="emoji-btn" onclick="addEmoji('😂')">😂</button>
+                        <button class="emoji-btn" onclick="addEmoji('❤️')">❤️</button>
+                        <button class="emoji-btn" onclick="addEmoji('🔥')">🔥</button>
+                        <button class="emoji-btn" onclick="addEmoji('👍')">👍</button>
+                        <button class="emoji-btn" onclick="addEmoji('🎉')">🎉</button>
                     </div>
                     <div style="display: flex; gap: 8px; width: 100%; flex-wrap: wrap;">
                         <input type="text" id="publicInput" placeholder="Сообщение..." onkeypress="if(event.key==='Enter') sendPublicMessage()">
-                        <input type="file" id="publicImageUpload" accept="image/*" style="display:none;" onchange="handleImageUpload('public', this)">
+                        <input type="file" id="publicImageUpload" accept="image/*" style="display:none;" onchange="handleImageUpload(this)">
                         <button class="image-upload-btn" onclick="document.getElementById('publicImageUpload').click()">📷</button>
                         <button onclick="sendPublicMessage()">Отправить</button>
                     </div>
@@ -374,53 +309,22 @@
                 <div id="pendingList">Загрузка...</div>
             </div>
         </div>
-        
-        <div id="privateTab" class="main-content hidden">
-            <div class="user-list-panel">
-                <h4>👤 Выберите собеседника</h4>
-                <ul id="privateUserList"></ul>
-            </div>
-            
-            <div class="chat-container">
-                <div id="privateChatHeader" style="padding: 10px; border-bottom: 1px solid var(--border);">
-                    <span id="selectedUserName">Никто не выбран</span>
-                    <span id="selectedUserActive" style="font-size: 12px; margin-left: 10px;"></span>
-                </div>
-                <div class="chat-messages" id="privateMessages">Выберите собеседника</div>
-                <div class="chat-input-area">
-                    <div class="emoji-picker">
-                        <button class="emoji-btn" onclick="addEmoji('private', '😀')">😀</button>
-                        <button class="emoji-btn" onclick="addEmoji('private', '😂')">😂</button>
-                        <button class="emoji-btn" onclick="addEmoji('private', '❤️')">❤️</button>
-                        <button class="emoji-btn" onclick="addEmoji('private', '🔥')">🔥</button>
-                        <button class="emoji-btn" onclick="addEmoji('private', '👍')">👍</button>
-                        <button class="emoji-btn" onclick="addEmoji('private', '🎉')">🎉</button>
-                    </div>
-                    <div style="display: flex; gap: 8px; width: 100%; flex-wrap: wrap;">
-                        <input type="text" id="privateInput" placeholder="Сообщение..." onkeypress="if(event.key==='Enter') sendPrivateMessage()">
-                        <input type="file" id="privateImageUpload" accept="image/*" style="display:none;" onchange="handleImageUpload('private', this)">
-                        <button class="image-upload-btn" onclick="document.getElementById('privateImageUpload').click()">📷</button>
-                        <button onclick="sendPrivateMessage()">Отправить</button>
-                    </div>
-                </div>
-            </div>
-        </div>
     </div>
 
     <script>
         let currentUser = null;
         let currentUserColor = '#0066cc';
         let currentTheme = 'light';
-        let activeTab = 'public';
-        let selectedPrivateUser = null;
         let updateInterval = null;
-        let privateUpdateInterval = null;
         let activeUpdateInterval = null;
         let notificationPermission = false;
-        let unreadCount = 0;
         
         const STORAGE_USER_KEY = 'chat_current_user';
         const NOTIFICATION_ASKED_KEY = 'chat_notification_asked';
+        
+        function goToPrivateChat() {
+            window.location.href = '/private';
+        }
         
         function toggleTheme() {
             currentTheme = currentTheme === 'light' ? 'dark' : 'light';
@@ -460,13 +364,13 @@
             });
         }
         
-        async function handleImageUpload(chatType, fileInput) {
+        async function handleImageUpload(fileInput) {
             let file = fileInput.files[0];
             if (!file) return;
             if (!file.type.startsWith('image/')) { alert('Выберите изображение'); return; }
             try {
                 let compressed = await compressImage(file, 500);
-                let input = document.getElementById(chatType === 'public' ? 'publicInput' : 'privateInput');
+                let input = document.getElementById('publicInput');
                 input.value = compressed;
             } catch(e) { alert('Ошибка'); }
             fileInput.value = '';
@@ -506,8 +410,8 @@
             return await response.json();
         }
         
-        function addEmoji(chatType, emoji) {
-            let input = document.getElementById(chatType === 'public' ? 'publicInput' : 'privateInput');
+        function addEmoji(emoji) {
+            let input = document.getElementById('publicInput');
             input.value += emoji;
             input.focus();
         }
@@ -532,7 +436,6 @@
             try {
                 let users = await apiCall('/api/users');
                 let container = document.getElementById('userList');
-                let privateContainer = document.getElementById('privateUserList');
                 if (container) {
                     container.innerHTML = '';
                     let onlineCount = 0;
@@ -540,7 +443,7 @@
                         if (u.username === currentUser) continue;
                         if (u.online) onlineCount++;
                         let li = document.createElement('li');
-                        li.innerHTML = `<span><span class="online-indicator ${u.online ? 'online' : 'offline'}"></span><span style="color:${u.color}">${escapeHtml(u.username)}</span>${u.last_active ? `<span style="font-size:10px; margin-left:8px;">${formatLastActive(u.last_active)}</span>` : ''}</span>`;
+                        li.innerHTML = `<span><span class="online-indicator ${u.online ? 'online' : 'offline'}"></span><span style="color:${u.color}">${escapeHtml(u.username)}</span></span>`;
                         if (currentUser === 'admin') {
                             let btn = document.createElement('button');
                             btn.textContent = '❌';
@@ -552,29 +455,7 @@
                     }
                     document.getElementById('onlineCount').innerHTML = `🟢 ${onlineCount} онлайн`;
                 }
-                if (privateContainer) {
-                    privateContainer.innerHTML = '';
-                    for (let u of users) {
-                        if (u.username === currentUser) continue;
-                        let li = document.createElement('li');
-                        li.innerHTML = `<span><span class="online-indicator ${u.online ? 'online' : 'offline'}"></span><span style="color:${u.color}">${escapeHtml(u.username)}</span><span style="font-size:10px; margin-left:8px;">${formatLastActive(u.last_active)}</span></span>`;
-                        li.onclick = () => selectPrivateUser(u.username);
-                        privateContainer.appendChild(li);
-                    }
-                }
             } catch(e) { console.error(e); }
-        }
-        
-        function formatLastActive(timestamp) {
-            if (!timestamp || timestamp === 0) return 'никогда';
-            let diff = Date.now() - timestamp;
-            let minutes = Math.floor(diff / 60000);
-            if (minutes < 1) return 'только что';
-            if (minutes < 60) return `${minutes} мин назад`;
-            let hours = Math.floor(minutes / 60);
-            if (hours < 24) return `${hours} ч назад`;
-            let days = Math.floor(hours / 24);
-            return `${days} д назад`;
         }
         
         async function deleteUser(username) {
@@ -657,86 +538,6 @@
         async function approveUser(name) { await apiCall('/api/approve', 'POST', { username: name }); loadPending(); loadUsers(); }
         async function rejectUser(name) { await apiCall('/api/reject', 'POST', { username: name }); loadPending(); }
         
-        async function selectPrivateUser(username) {
-            selectedPrivateUser = username;
-            document.getElementById('selectedUserName').innerHTML = escapeHtml(username);
-            await loadPrivateMessages();
-            await fetch('/api/mark_read', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ from_user: username, to_user: currentUser }) });
-            checkUnreadCount();
-            let users = await apiCall('/api/users');
-            let user = users.find(u => u.username === username);
-            if (user) {
-                document.getElementById('selectedUserActive').innerHTML = user.online ? '🟢 онлайн' : (user.last_active ? `📅 ${formatLastActive(user.last_active)}` : '');
-            }
-        }
-        
-        async function loadPrivateMessages() {
-            if (!selectedPrivateUser) return;
-            let messages = await apiCall('/api/private_messages', 'POST', { user1: currentUser, user2: selectedPrivateUser });
-            let container = document.getElementById('privateMessages');
-            if (!messages.length) { container.innerHTML = '<div class="chat-message">Нет сообщений</div>'; return; }
-            container.innerHTML = '';
-            for (let msg of messages) {
-                let div = document.createElement('div');
-                div.className = 'chat-message';
-                let isFromMe = msg.from_user === currentUser;
-                div.innerHTML = `<strong style="color:${msg.author_color || '#0066cc'}">${escapeHtml(isFromMe ? 'Вы' : msg.from_user)}</strong><span class="time">${msg.time}</span><br>${formatMessage(msg.text)}`;
-                container.appendChild(div);
-            }
-            container.scrollTop = container.scrollHeight;
-        }
-        
-        async function sendPrivateMessage() {
-            if (!selectedPrivateUser) { alert('Выберите собеседника'); return; }
-            let input = document.getElementById('privateInput');
-            let text = input.value.trim();
-            if (!text) return;
-            let now = new Date();
-            let timeStr = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}:${now.getSeconds().toString().padStart(2,'0')}`;
-            let tempId = 'temp_priv_' + Date.now();
-            let container = document.getElementById('privateMessages');
-            let tempDiv = document.createElement('div');
-            tempDiv.className = 'chat-message sending';
-            tempDiv.id = tempId;
-            tempDiv.innerHTML = `<strong style="color:${currentUserColor}">Вы</strong><span class="time">${timeStr}</span><br>${formatMessage(text)}<div class="message-actions"><small>⏳ отправляется...</small></div>`;
-            container.appendChild(tempDiv);
-            container.scrollTop = container.scrollHeight;
-            input.value = '';
-            try {
-                await apiCall('/api/send_private', 'POST', { from_user: currentUser, to_user: selectedPrivateUser, text: text, time: timeStr, timestamp: Date.now() });
-                document.getElementById(tempId)?.remove();
-                loadPrivateMessages();
-                if (!document.hidden) sendNotification(`Личное от ${currentUser}`, text.substring(0, 100));
-            } catch(e) { document.getElementById(tempId)?.remove(); alert('Ошибка'); }
-        }
-        
-        async function checkUnreadCount() {
-            let res = await apiCall('/api/unread_count', 'POST', { username: currentUser });
-            unreadCount = res.count;
-            let badge = document.getElementById('privateUnread');
-            if (unreadCount > 0 && activeTab !== 'private') {
-                badge.style.display = 'inline';
-                badge.textContent = unreadCount;
-            } else {
-                badge.style.display = 'none';
-            }
-        }
-        
-        function switchTab(tab) {
-            activeTab = tab;
-            document.getElementById('publicTab').classList.add('hidden');
-            document.getElementById('privateTab').classList.add('hidden');
-            document.getElementById(`${tab}Tab`).classList.remove('hidden');
-            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-            if (tab === 'public') document.querySelector('.tab-btn:first-child').classList.add('active');
-            else document.querySelector('.tab-btn:last-child').classList.add('active');
-            if (tab === 'private') {
-                loadPrivateMessages();
-                checkUnreadCount();
-                document.getElementById('privateUnread').style.display = 'none';
-            }
-        }
-        
         async function register() {
             let name = document.getElementById('regName').value.trim();
             let pass = document.getElementById('regPass').value.trim();
@@ -764,7 +565,6 @@
                 updateActiveStatus();
                 if (activeUpdateInterval) clearInterval(activeUpdateInterval);
                 activeUpdateInterval = setInterval(() => updateActiveStatus(), 15000);
-                setInterval(() => checkUnreadCount(), 5000);
             } else document.getElementById('loginError').innerText = res.error;
         }
         
@@ -778,8 +578,6 @@
             if (currentUser === 'admin') document.getElementById('adminPanel').classList.remove('hidden');
             if (updateInterval) clearInterval(updateInterval);
             updateInterval = setInterval(() => { loadPublicMessages(); loadUsers(); if (currentUser === 'admin') loadPending(); }, 2000);
-            if (privateUpdateInterval) clearInterval(privateUpdateInterval);
-            privateUpdateInterval = setInterval(() => { if (activeTab === 'private' && selectedPrivateUser) loadPrivateMessages(); checkUnreadCount(); }, 2000);
             setTimeout(() => showNotificationBanner(), 500);
         }
         
@@ -787,7 +585,6 @@
         
         function logout() {
             if (updateInterval) clearInterval(updateInterval);
-            if (privateUpdateInterval) clearInterval(privateUpdateInterval);
             if (activeUpdateInterval) clearInterval(activeUpdateInterval);
             localStorage.removeItem(STORAGE_USER_KEY);
             location.reload();
@@ -830,7 +627,6 @@
                     updateActiveStatus();
                     if (activeUpdateInterval) clearInterval(activeUpdateInterval);
                     activeUpdateInterval = setInterval(() => updateActiveStatus(), 15000);
-                    setInterval(() => checkUnreadCount(), 5000);
                 } else localStorage.removeItem(STORAGE_USER_KEY);
             }
         }
